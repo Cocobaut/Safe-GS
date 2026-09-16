@@ -14,19 +14,21 @@ export DISPLAY=:0
 
 SAFEGS_PY=/home/ml4u/conda_envs/safe-gs/bin/python
 GOF_PY=/home/ml4u/conda_envs/gof/bin/python
-GOF_DIR="Based_Model/Gaussian Opacity Fields (GOF)"
+GOF_DIR="Based_Model/GOF"
 
-COLMAP_DIR="outputs/replica_colmap/${SCENE}"
-MODEL_DIR="outputs/gof_replica/${SCENE}"
+COLMAP_DIR="outputs/Replica/sfm/${SCENE}"
+MODEL_DIR="outputs/Replica/3dgs/${SCENE}"
 IMAGES_DIR="../Replica 8 Scene/Replica/${SCENE}/results/image"
-LOG_FILE="outputs/gof_replica_${SCENE}.log"
-mkdir -p outputs
+LOG_DIR="outputs/Replica/3dgs/log"
+LOG_FILE="${LOG_DIR}/${SCENE}.log"
+mkdir -p "$COLMAP_DIR" "$MODEL_DIR" "$LOG_DIR"
 
 CKPT="${MODEL_DIR}/point_cloud/iteration_30000/point_cloud.ply"
 if [ -f "$CKPT" ]; then
     echo "[SKIP] ${SCENE} da co checkpoint 30000, bo qua."
     exit 0
 fi
+
 
 {
     echo "======================================================================"

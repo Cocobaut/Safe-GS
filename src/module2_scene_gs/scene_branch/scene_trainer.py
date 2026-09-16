@@ -476,9 +476,15 @@ class SceneGSTrainer:
 
         self.iterations = self.cfg.get("iterations", 20000)
         self.output_dir = Path(self.cfg.get("workspace_dir", "data/workspace"))
-        self.checkpoints_dir = self.output_dir / "checkpoints"
+        if "checkpoints_dir" in self.cfg:
+            self.checkpoints_dir = Path(self.cfg["checkpoints_dir"])
+        elif "3dgs" in self.output_dir.parts or self.output_dir.name == "checkpoints":
+            self.checkpoints_dir = self.output_dir
+        else:
+            self.checkpoints_dir = self.output_dir / "checkpoints"
         self.checkpoints_dir.mkdir(parents=True, exist_ok=True)
         self.checkpoint_tag = self.cfg.get("checkpoint_tag", "")
+
 
         self.model = GaussianSceneModel(sh_degree=self.cfg.get("sh_degree", 3))
 

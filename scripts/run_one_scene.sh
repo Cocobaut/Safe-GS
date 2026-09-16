@@ -13,10 +13,24 @@ export PYTHONNOUSERSITE=1
 export DISPLAY=:0
 PYTHON=/home/ml4u/conda_envs/safe-gs/bin/python
 
-workspace_dir="outputs/workspace/${name}"
-ckpt="${workspace_dir}/checkpoints/scene_gs_30000.ply"
-log_file="${workspace_dir}/run.log"
-mkdir -p "$workspace_dir"
+if [[ "$name" == dtu_* ]]; then
+    dataset="DTU"
+    scene_name="$name"
+elif [[ "$name" == replica_* ]]; then
+    dataset="Replica"
+    scene_name="${name#replica_}"
+else
+    dataset="DTU"
+    scene_name="$name"
+fi
+
+sfm_dir="outputs/${dataset}/sfm/${scene_name}"
+three_dir="outputs/${dataset}/3dgs/${scene_name}"
+log_dir="outputs/${dataset}/3dgs/log"
+log_file="${log_dir}/${scene_name}.log"
+ckpt="${three_dir}/scene_gs_30000.ply"
+
+mkdir -p "$sfm_dir" "$three_dir" "$log_dir"
 
 if [ -f "$ckpt" ]; then
     echo "[SKIP] ${name} đã có checkpoint 30000, bỏ qua."
@@ -28,11 +42,11 @@ fi
     echo ">>> SCENE: ${name}  ($(date))"
     echo "======================================================================"
 
-    if [ ! -d "${workspace_dir}/sfm/sparse/0" ]; then
+    if [ ! -d "${sfm_dir}/sparse/0" ]; then
         echo "--- [${name}] Chạy COLMAP (SfM) ---"
         "$PYTHON" scripts/01_run_perception.py \
             --images_dir "$images_dir" \
-            --workspace_dir "$workspace_dir" \
+            --workspace_dir "$sfm_dir" \
             --skip_seg
     else
         echo "[SKIP] Đã có output SfM, bỏ qua COLMAP."
@@ -40,11 +54,12 @@ fi
 
     echo "--- [${name}] Train Scene-GS (30000 iterations) ---"
     "$PYTHON" scripts/02_run_scene_gs.py \
-        --sfm_dir "${workspace_dir}/sfm/sparse/0" \
+        --sfm_dir "${sfm_dir}/sparse/0" \
         --raw_image_dir "$images_dir" \
-        --workspace_dir "$workspace_dir"
+        --workspace_dir "$three_dir"
 
     echo ">>> XONG SCENE: ${name}  ($(date))"
 } > "$log_file" 2>&1
 
 echo "[DONE] ${name} -> xem log tại ${log_file}"
+

@@ -15,7 +15,7 @@
 #   cd "/media/ml4u/Extreme SSD/Safe-GS"
 #   bash scripts/run_gof_replica_all.sh
 #
-# Xem tien trinh tung scene: outputs/gof_replica_<scene>.log
+# Xem tien trinh tung scene: outputs/Replica/3dgs/log/<scene>.log
 
 set -e
 cd "$(dirname "$0")/.."
@@ -24,7 +24,8 @@ PARALLEL="${PARALLEL:-2}"
 SCENES="office0 office1 office2 office3 office4 room0 room1 room2"
 
 echo "Chay ${PARALLEL} scene song song. Tong $(echo $SCENES | wc -w) scene."
-echo "Theo doi tien trinh: outputs/gof_replica_<scene>.log"
+echo "Theo doi tien trinh: outputs/Replica/3dgs/log/<scene>.log"
+
 echo ""
 
 echo "$SCENES" | tr ' ' '\n' | xargs -P "$PARALLEL" -I{} bash scripts/run_gof_replica_one_scene.sh {}

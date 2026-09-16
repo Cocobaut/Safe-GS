@@ -5,15 +5,16 @@ Chạy:
     export PYTHONNOUSERSITE=1
     export DISPLAY=:0
     /home/ml4u/conda_envs/safe-gs/bin/python scripts/render_gs.py \
-        --checkpoint outputs/workspace/dtu_scan24/checkpoints/scene_gs_30000.ply \
-        --output_dir outputs/workspace/dtu_scan24/renders_30000
+        --checkpoint outputs/DTU/3dgs/dtu_scan24/scene_gs_30000.ply \
+        --output_dir outputs/DTU/3dgs/dtu_scan24/renders_30000
 
 Muốn render checkpoint khác chỉ cần đổi --checkpoint (vd scene_gs_7000.ply) và --output_dir.
 
 Xem chất lượng Gaussian trực quan hơn (video xoay 360° quanh vật thể):
     /home/ml4u/conda_envs/safe-gs/bin/python scripts/render_gs.py \
-        --checkpoint outputs/workspace/dtu_scan24/checkpoints/scene_gs_30000.ply \
-        --output_dir outputs/workspace/dtu_scan24/orbit_30000 --orbit --num_frames 90
+        --checkpoint outputs/DTU/3dgs/dtu_scan24/scene_gs_30000.ply \
+        --output_dir outputs/DTU/3dgs/dtu_scan24/orbit_30000 --orbit --num_frames 90
+
 """
 import argparse
 import subprocess
@@ -123,6 +124,7 @@ def main():
     parser.add_argument("--checkpoint", required=True, help="Đường dẫn checkpoint .ply muốn render (vd scene_gs_7000.ply, scene_gs_30000.ply)")
     parser.add_argument("--sfm_dir", default=None, help="Mặc định lấy từ config")
     parser.add_argument("--images_dir", default=None, help="Mặc định lấy từ config (raw_image_dir)")
+    parser.add_argument("--raw_image_dir", default=None, help="Alias của --images_dir")
     parser.add_argument("--output_dir", required=True, help="Thư mục lưu ảnh render ra")
     parser.add_argument("--sh_degree", type=int, default=3)
     parser.add_argument("--num_views", type=int, default=8, help="Số góc camera muốn render thử (mặc định 8, lấy rải đều)")
@@ -140,7 +142,9 @@ def main():
 
     cfg = load_toml_config(args.config)
     sfm_dir = Path(args.sfm_dir or cfg.get("sfm_dir"))
-    images_dir = Path(args.images_dir or cfg.get("raw_image_dir"))
+    raw_img = args.images_dir or args.raw_image_dir or cfg.get("raw_image_dir")
+    images_dir = Path(raw_img)
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

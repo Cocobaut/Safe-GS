@@ -14,7 +14,7 @@
 #   cd "/media/ml4u/Extreme SSD/Safe-GS"
 #   bash scripts/run_all_scenes.sh
 #
-# Xem tiến trình từng scene riêng: outputs/workspace/<tên_scene>/run.log
+# Xem tiến trình từng scene riêng: outputs/DTU/3dgs/log/<tên_scene>.log hoặc outputs/Replica/3dgs/log/<tên_scene>.log
 
 set -e
 cd "$(dirname "$0")/.."
@@ -35,7 +35,8 @@ for scene in $REPLICA_SCENES; do
 done
 
 echo "Chạy ${PARALLEL} scene song song cùng lúc. Tổng $(wc -l < "$scene_list_file") scene."
-echo "Theo dõi tiến trình riêng từng scene tại: outputs/workspace/<tên_scene>/run.log"
+echo "Theo dõi tiến trình riêng từng scene tại: outputs/DTU/3dgs/log/ hoặc outputs/Replica/3dgs/log/"
+
 echo ""
 
 xargs -a "$scene_list_file" -P "$PARALLEL" -I{} bash scripts/run_one_scene.sh {}

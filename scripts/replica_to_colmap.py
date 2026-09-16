@@ -8,7 +8,7 @@ Point cloud khởi tạo được back-project từ depth map ground-truth (khô
 Chạy:
     /home/ml4u/conda_envs/safe-gs/bin/python scripts/replica_to_colmap.py --scene office0
 
-Sinh ra: outputs/replica_colmap/<scene>/sparse/0/{cameras,images,points3D}.bin
+Sinh ra: outputs/Replica/sfm/<scene>/sparse/0/{cameras,images,points3D}.bin
 """
 import argparse
 import json
@@ -20,7 +20,8 @@ from PIL import Image
 
 
 def build_colmap_model(scene: str, replica_root: Path, output_dir: Path,
-                        point_cloud_stride_frames: int = 40, point_cloud_stride_pixels: int = 8):
+                        point_cloud_stride_frames: int = 40, point_cloud_stride_pixels: int = 8,
+                        camera_stride: int = 1):
     scene_dir = replica_root / scene
     cam = json.loads((replica_root / "cam_params.json").read_text())["camera"]
     fx, fy, cx, cy, depth_scale = cam["fx"], cam["fy"], cam["cx"], cam["cy"], cam["scale"]
@@ -40,7 +41,8 @@ def build_colmap_model(scene: str, replica_root: Path, output_dir: Path,
     rig.add_ref_sensor(pycolmap.sensor_t(pycolmap.SensorType.CAMERA, 1))
     rec.add_rig(rig)
 
-    for i in range(num_frames):
+    camera_frame_indices = list(range(0, num_frames, camera_stride))
+    for i in camera_frame_indices:
         c2w = traj[i]
         w2c = np.linalg.inv(c2w)
         cam_from_world = pycolmap.Rigid3d(w2c[:3, :4])
@@ -49,7 +51,8 @@ def build_colmap_model(scene: str, replica_root: Path, output_dir: Path,
         img = pycolmap.Image(name=image_name, camera_id=1, image_id=i + 1)
         rec.add_image_with_trivial_frame(img, cam_from_world)
 
-    print(f"[{scene}] Đã thêm {num_frames} camera pose (ground-truth, không qua COLMAP).")
+    print(f"[{scene}] Đã thêm {len(camera_frame_indices)}/{num_frames} camera pose "
+          f"(ground-truth, camera_stride={camera_stride}, không qua COLMAP).")
 
     # Point cloud khoi tao: back-project depth GT tu 1 so frame rai deu
     xyz_all, rgb_all = [], []
@@ -102,15 +105,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--scene", required=True, help="Tên scene Replica (vd office0, room1)")
     parser.add_argument("--replica_root", default="../Replica 8 Scene/Replica")
-    parser.add_argument("--output_dir", default=None, help="Mặc định outputs/replica_colmap/<scene>")
+    parser.add_argument("--output_dir", default=None, help="Mặc định outputs/Replica/sfm/<scene>")
     parser.add_argument("--point_cloud_stride_frames", type=int, default=40)
     parser.add_argument("--point_cloud_stride_pixels", type=int, default=8)
+    parser.add_argument("--camera_stride", type=int, default=1,
+                         help="Chi them 1/N camera vao sparse model (vd 8 -> 250/2000 anh) - giam RAM khi extract_mesh.py load het anh training")
     args = parser.parse_args()
 
-    output_dir = Path(args.output_dir or f"outputs/replica_colmap/{args.scene}")
+    output_dir = Path(args.output_dir or f"outputs/Replica/sfm/{args.scene}")
     build_colmap_model(
+
         args.scene, Path(args.replica_root), output_dir,
         args.point_cloud_stride_frames, args.point_cloud_stride_pixels,
+        args.camera_stride,
     )
 
 

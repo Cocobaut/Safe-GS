@@ -36,6 +36,18 @@ def parse_args():
         help="Thư mục chứa kết quả trung gian workspace (mặc định: data/workspace)"
     )
     parser.add_argument(
+        "--sfm_output_dir",
+        type=str,
+        default=None,
+        help="Chỉ định trực tiếp thư mục xuất SfM (vd outputs/DTU/sfm/dtu_scan24)"
+    )
+    parser.add_argument(
+        "--seg_output_dir",
+        type=str,
+        default=None,
+        help="Chỉ định trực tiếp thư mục xuất Segmentation"
+    )
+    parser.add_argument(
         "--skip_sfm",
         action="store_true",
         help="Bỏ qua bước SfM nếu đã có sẵn dữ liệu COLMAP (poses, intrinsics, points3D)"
@@ -70,10 +82,22 @@ def main():
         single_camera = True
 
     # Định nghĩa cấu trúc thư mục output
-    sfm_output_dir = workspace_dir / "sfm"
+    if args.sfm_output_dir:
+        sfm_output_dir = Path(args.sfm_output_dir)
+    elif "sfm" in workspace_dir.parts or workspace_dir.name == "sfm":
+        sfm_output_dir = workspace_dir
+    else:
+        sfm_output_dir = workspace_dir / "sfm"
+
     sparse_model_dir = sfm_output_dir / "sparse" / "0"
-    seg_output_dir = workspace_dir / "segmentation"
+    
+    if args.seg_output_dir:
+        seg_output_dir = Path(args.seg_output_dir)
+    else:
+        seg_output_dir = workspace_dir / "segmentation"
+        
     vis_output_dir = seg_output_dir / "vis" if args.save_vis else None
+
 
     print("=" * 70)
     print(">>> BẮT ĐẦU CHẠY MODULE 1: PERCEPTION (SfM + 2D SEGMENTATION) <<<")

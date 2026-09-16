@@ -75,6 +75,11 @@ def load_dataset_paths(name: str, **overrides: str) -> dict:
     env_root = os.environ.get("DATASET_ROOT")
     if env_root:
         cfg_vars["root"] = env_root
+    elif not Path(cfg_vars.get("root", "")).exists():
+        repo_root = Path(__file__).resolve().parents[2]
+        if (repo_root.parent / "Dataset Configs").exists():
+            cfg_vars["root"] = str(repo_root.parent)
 
     fmt_vars = {**cfg_vars, **_derive_numeric_vars(cfg_vars)}
     return _resolve(cfg.get("paths", {}), fmt_vars)
+

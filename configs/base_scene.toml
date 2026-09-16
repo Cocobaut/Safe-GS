@@ -20,9 +20,10 @@ lambda_dssim = 0.2
 # set env DATASET_ROOT, khong phai sua file nay.
 # Dang override thu cong de train tren DTU scan24 (dataset da chay COLMAP xong).
 raw_image_dir = "../DTU Preprocess/DTU/scan24/images"
-sfm_dir = "outputs/workspace/dtu_scan24/sfm/sparse/0"
-mask_meta = "outputs/workspace/dtu_scan24/segmentation/segmentation_meta.json"
-workspace_dir = "outputs/workspace/dtu_scan24"
+sfm_dir = "outputs/DTU/sfm/dtu_scan24/sparse/0"
+mask_meta = "outputs/DTU/bounding_box_3D/dtu_scan24/segmentation_meta.json"
+workspace_dir = "outputs/DTU/3dgs/dtu_scan24"
+
 
 [dataset]
 name = "replica"   # ung voi Dataset Configs/replica.yaml

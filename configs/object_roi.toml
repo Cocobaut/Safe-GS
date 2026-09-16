@@ -1,7 +1,8 @@
 # Cấu hình Nhánh ROI 3D (Module 2)
-sfm_dir = "outputs/sfm/sparse/0"
-masks_dir = "outputs/mask"
-workspace_dir = "outputs/workspace"
+sfm_dir = "outputs/DTU/sfm/dtu_scan24/sparse/0"
+masks_dir = "outputs/DTU/bounding_box_3D/dtu_scan24/masks"
+workspace_dir = "outputs/DTU/bounding_box_3D/dtu_scan24"
+
 
 min_views_consensus = 2
 margin_ratio = 0.1

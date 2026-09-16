@@ -4,8 +4,9 @@ Script kiểm tra/trực quan hóa output SfM (COLMAP) sau khi chạy scripts/01
 Chạy:
     export DISPLAY=:0   # cần màn hình thật để mở cửa sổ Open3D
     /home/ml4u/conda_envs/safe-gs/bin/python scripts/inspect_sfm.py \
-        --sparse_dir outputs/workspace/dtu_scan24/sfm/sparse/0 \
-        --visibility_json outputs/workspace/dtu_scan24/sfm/visibility_graph.json
+        --sparse_dir outputs/DTU/sfm/dtu_scan24/sparse/0 \
+        --visibility_json outputs/DTU/sfm/dtu_scan24/visibility_graph.json
+
 
 Thêm --no_viz nếu không muốn mở cửa sổ Open3D (chỉ in số liệu).
 """
@@ -204,14 +205,15 @@ def view_ply(ply_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sparse_dir", default="outputs/workspace/dtu_scan24/sfm/sparse/0")
-    parser.add_argument("--visibility_json", default="outputs/workspace/dtu_scan24/sfm/visibility_graph.json")
+    parser.add_argument("--sparse_dir", default="outputs/DTU/sfm/dtu_scan24/sparse/0")
+    parser.add_argument("--visibility_json", default="outputs/DTU/sfm/dtu_scan24/visibility_graph.json")
     parser.add_argument("--no_viz", action="store_true", help="Bỏ qua bước mở cửa sổ Open3D")
-    parser.add_argument("--export_ply", default=None, help="Đường dẫn file .ply muốn xuất ra (vd outputs/workspace/dtu_scan24/sfm/sparse_cloud.ply)")
+    parser.add_argument("--export_ply", default=None, help="Đường dẫn file .ply muốn xuất ra (vd outputs/DTU/sfm/dtu_scan24/sparse_cloud.ply)")
     parser.add_argument("--color_by_density", action="store_true", help="Tô màu point cloud theo mật độ (đỏ=dày, xanh dương=thưa) thay vì màu RGB gốc")
     parser.add_argument("--dtu_cameras_npz", default=None, help="Đường dẫn cameras.npz gốc của DTU để so sánh pose (vd '../DTU Preprocess/DTU/scan24/cameras.npz')")
     parser.add_argument("--view_ply", default=None, help="Chỉ mở xem 1 file .ply bất kỳ (vd file ground-truth STL của DTU), bỏ qua toàn bộ phần đọc COLMAP")
     args = parser.parse_args()
+
 
     if args.view_ply:
         view_ply(args.view_ply)
