@@ -13,9 +13,6 @@ dependencies = [
     "open3d",
 ]
 
-[project.scripts]
-project-safe-gs = "project_safe_gs:main"
-
 [build-system]
 requires = ["uv_build>=0.12.7,<0.13.0"]
 build-backend = "uv_build"
