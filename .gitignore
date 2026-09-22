@@ -2,6 +2,10 @@
 # Comprehensive .gitignore for AI / Deep Learning / Computer Vision Projects
 # ==============================================================================
 
+# Vendored CUDA-extension dependencies (fetched/built locally by install.py,
+# not project source) - GOF's are already excluded as an ungitted submodule link
+Based_Model/MILo/submodules/
+
 # ------------------------------------------------------------------------------
 # 1. Bytecode, Compilers & Python Cache
 # ------------------------------------------------------------------------------

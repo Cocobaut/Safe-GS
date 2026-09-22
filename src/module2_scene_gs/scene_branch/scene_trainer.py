@@ -290,12 +290,15 @@ class GaussianSceneModel:
         self.denom = torch.zeros((n, 1), device=device)
         self.max_radii2D = torch.zeros(n, device=device)
 
-    def densify_and_clone(self, grads, grad_threshold, scene_extent):
+    def densify_and_clone(self, grads, grad_threshold, scene_extent, region_mask=None):
+        """region_mask (bool, N): neu co, chi cho phep clone hat nam trong vung nay (vd ROI cua 1 object) - dung cho Object-GS confined densification."""
         selected_pts_mask = torch.norm(grads, dim=-1) >= grad_threshold
         selected_pts_mask = torch.logical_and(
             selected_pts_mask,
             torch.max(self.get_scaling, dim=1).values <= self.percent_dense * scene_extent,
         )
+        if region_mask is not None:
+            selected_pts_mask = torch.logical_and(selected_pts_mask, region_mask)
         new_xyz = self._xyz[selected_pts_mask]
         new_f_dc = self._features_dc[selected_pts_mask]
         new_f_rest = self._features_rest[selected_pts_mask]
@@ -304,7 +307,8 @@ class GaussianSceneModel:
         new_rotation = self._rotation[selected_pts_mask]
         self._densification_postfix(new_xyz, new_f_dc, new_f_rest, new_opacities, new_scaling, new_rotation)
 
-    def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
+    def densify_and_split(self, grads, grad_threshold, scene_extent, N=2, region_mask=None):
+        """region_mask (bool, N): neu co, chi cho phep split hat nam trong vung nay - dung cho Object-GS confined densification."""
         n_init_points = self._xyz.shape[0]
         padded_grad = torch.zeros(n_init_points, device=self._xyz.device)
         padded_grad[:grads.shape[0]] = grads.squeeze()
@@ -313,6 +317,8 @@ class GaussianSceneModel:
             selected_pts_mask,
             torch.max(self.get_scaling, dim=1).values > self.percent_dense * scene_extent,
         )
+        if region_mask is not None:
+            selected_pts_mask = torch.logical_and(selected_pts_mask, region_mask)
 
         stds = self.get_scaling[selected_pts_mask].repeat(N, 1)
         means = torch.zeros((stds.size(0), 3), device=self._xyz.device)
@@ -333,12 +339,22 @@ class GaussianSceneModel:
         ))
         self.prune_points(prune_filter)
 
-    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
+    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, region_mask_fn=None):
+        """region_mask_fn (callable: xyz -> bool mask N) neu co, densify (clone/split ra hat MOI)
+        chi xay ra trong vung nay - dung cho Object-GS: cai thien 1 object trong scene ma khong dung
+        vao phan con lai. La CALLABLE (khong phai tensor san) vi so luong hat thay doi ngay giua
+        clone va split (clone them hat truoc) nen phai tinh lai mask theo dung kich thuoc hien tai
+        moi lan goi. Prune (xoa hat opacity thap) van ap dung toan cuc nhu binh thuong."""
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
-        self.densify_and_clone(grads, max_grad, extent)
-        self.densify_and_split(grads, max_grad, extent)
+        region_mask = region_mask_fn(self.get_xyz) if region_mask_fn is not None else None
+        self.densify_and_clone(grads, max_grad, extent, region_mask=region_mask)
+
+        grads = self.xyz_gradient_accum / self.denom
+        grads[grads.isnan()] = 0.0
+        region_mask = region_mask_fn(self.get_xyz) if region_mask_fn is not None else None
+        self.densify_and_split(grads, max_grad, extent, region_mask=region_mask)
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()
         if max_screen_size:
@@ -388,7 +404,9 @@ class GaussianSceneModel:
 
         n_rest = sum(1 for n in prop_names if n.startswith("f_rest_"))
         f_rest = np.stack([v[f"f_rest_{i}"] for i in range(n_rest)], axis=1).astype(np.float32)
-        f_rest = f_rest.reshape((-1, n_rest // 3, 3))
+        # save_ply ghi theo thu tu kenh-mau-truoc (transpose(1,2).flatten): 15 he so kenh R, roi 15 kenh G, roi 15 kenh B.
+        # Phai reshape (-1, 3, 15) roi transpose lai (-1, 15, 3) moi dung thu tu (coef, kenh) ban dau.
+        f_rest = f_rest.reshape((-1, 3, n_rest // 3)).transpose(0, 2, 1)
 
         n_scale = sum(1 for n in prop_names if n.startswith("scale_"))
         scales = np.stack([v[f"scale_{i}"] for i in range(n_scale)], axis=1).astype(np.float32)
