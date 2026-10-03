@@ -1,28 +1,27 @@
-numpy<2
-pandas
-open3d
 # ==========================================
 # Core Deep Learning & PyTorch Stack
 # ==========================================
-# Khuyến nghị PyTorch 2.1+ tương thích CUDA 11.8 / 12.1
+# Khuyen nghi PyTorch 2.1+ tuong thich CUDA 11.8 / 12.1
 torch>=2.1.0
 torchvision>=0.16.0
 torchaudio>=2.1.0
 einops>=0.7.0
 transformers>=4.36.0
+timm>=0.9.0
 
 # ==========================================
 # Geometry & Structure-from-Motion (COLMAP)
 # ==========================================
-# Thư viện Python wrapper cho COLMAP và geometry trên PyTorch
+# Python wrapper cho COLMAP va geometry tren PyTorch
 pycolmap>=0.6.0
 kornia>=0.7.1
 
 # ==========================================
-# Xử lý ma trận, dữ liệu khoa học & ảnh cơ bản
+# Xu ly ma tran, du lieu khoa hoc & anh co ban
 # ==========================================
 numpy>=1.24.0,<2.0.0
 scipy>=1.11.0
+pandas>=2.0.0
 scikit-learn>=1.3.0
 opencv-python>=4.8.0
 pillow>=10.0.0
@@ -36,22 +35,29 @@ trimesh>=4.0.0
 plyfile>=1.0.0
 
 # ==========================================
-# Quản lý Cấu hình, Log & UI Console
+# Physics Engine & Simulation (Module 4 / Module 6)
+# ==========================================
+mujoco>=3.0.0
+
+# ==========================================
+# Video & Media Rendering (Module 2 360-orbit / renders)
+# ==========================================
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.9
+
+# ==========================================
+# Quan ly Cau hinh, Log & UI Console
 # ==========================================
 tomli>=2.0.1; python_version < "3.11"
 pyyaml>=6.0
 tqdm>=4.66.0
 rich>=13.0.0
 
-# --- Bổ sung / Đảm bảo cho Module 3: Object-GS & 3DGS Composition ---
-plyfile>=1.0.0
-trimesh>=4.0.0
-scipy>=1.11.0
-numpy>=1.24.0,<2.0.0
-torch>=2.1.0
-torchvision>=0.16.0
-tqdm>=4.66.0
-pillow>=10.0.0
-opencv-python>=4.8.0
-
-timm
+# ==========================================
+# Lưu ý về Custom CUDA / C++ Extensions
+# ==========================================
+# Các gói sau cần biên dịch với CUDA Toolkit phù hợp (xem Guide_Run_Code_On_Server.md):
+# - diff-gaussian-rasterization:
+#   pip install "git+https://github.com/graphdeco-inria/diff-gaussian-rasterization.git" --no-build-isolation
+# - simple-knn:
+#   pip install "git+https://gitlab.inria.fr/bkerbl/simple-knn.git" --no-build-isolation
