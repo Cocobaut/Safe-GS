@@ -1,7 +1,7 @@
 """
 Phần GaussianModel của GOF (Based_Model/GOF/scene/gaussian_model.py) cần cho trích xuất mesh:
 thuộc tính scale/opacity có 3D filter, compute_3D_filter, get_tetra_points, get_frustum_mask.
-Đọc ply của InFusion (3DGS gốc, sh_degree 0, không có thuộc tính filter_3D).
+Đọc ply 3DGS chuẩn (InFusion: sh_degree 0, 3DGIC: sh_degree 3; thuộc tính thừa như obj_dc_* bị bỏ qua).
 """
 from typing import List
 

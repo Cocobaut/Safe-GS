@@ -74,6 +74,10 @@ def points_inside_convex_hull(point_cloud, mask, remove_outliers=True, outlier_f
 
     return inside_hull_tensor_mask
 
+def select_mask(objects, select_obj_id):
+    """True where the 2D label is any of the selected IDs (SAM2 may give one object several IDs across views)."""
+    return torch.isin(objects.long(), torch.tensor(select_obj_id, device=objects.device))
+
 def removal_setup(is_pbr, opt, model_path, iteration, views, gaussians, pipeline, background, classifier, selected_obj_ids, cameras_extent, removal_thresh):
     selected_obj_ids = torch.tensor(selected_obj_ids).cuda()
     with torch.no_grad():
@@ -82,7 +86,8 @@ def removal_setup(is_pbr, opt, model_path, iteration, views, gaussians, pipeline
         prob_obj3d = torch.softmax(logits3d,dim=0)
         # print(prob_obj3d.max(0)[0].shape)
         # input()
-        mask = prob_obj3d[selected_obj_ids, :, :] > removal_thresh
+        # sum over selected IDs: one object split across several SAM2 IDs would otherwise fail a per-ID threshold
+        mask = prob_obj3d[selected_obj_ids, :, :].sum(dim=0, keepdim=True) > removal_thresh
         # print(removal_thresh)
         mask3d = mask.any(dim=0).squeeze()
 
@@ -329,7 +334,7 @@ def find_intersect_mask(mask_input, viewpoint_cam, views, select_obj_id, id_now,
             else:
                 gt_object_others = view.objects.squeeze(0)
             # mask_others = (((gt_object_others * (gt_object_others == select_obj_id[0])) > 0).int()*255.0).cuda()
-            mask_fg = (((gt_object_others * (gt_object_others == select_obj_id[0])) > 0).int()).numpy()
+            mask_fg = select_mask(gt_object_others, select_obj_id).int().cpu().numpy()
             # print(mask_fg.shape)
             mask_fg = torch.Tensor(convex_hull_image(mask_fg)).cuda()
 
@@ -376,8 +381,9 @@ def find_intersect_mask(mask_input, viewpoint_cam, views, select_obj_id, id_now,
 
             # print(target_point_ref.shape)
 
-            gt_image = torch.zeros_like(view.original_image)
-            gt_depth = torch.ones_like(view.original_image)*10000.0
+            # project into the target view (viewpoint_cam): LERF crops differ by a few pixels per frame
+            gt_image = torch.zeros_like(viewpoint_cam.original_image)
+            gt_depth = torch.ones_like(viewpoint_cam.original_image)*10000.0
             # print(gt_image.shape)
             b1, b2, b3, b4 = (target_point_ref[:,0]<=(gt_image.shape[2]-1)), (target_point_ref[:,0]>=0), (target_point_ref[:,1]<=(gt_image.shape[1]-1)), (target_point_ref[:,1]>=0)
 
@@ -580,7 +586,7 @@ def render_set(is_pbr, pbr_kwargs, model_path, name, iteration, views, gaussians
                 gt_objects = ori_pred_obj.squeeze(0)
             else:
                 gt_objects = view.objects.squeeze(0)
-            remove_obj = ((gt_objects * (gt_objects == select_obj_id[0])) > 0).int().cpu()*255.0
+            remove_obj = select_mask(gt_objects, select_obj_id).int().cpu()*255.0
             # remain_obj = (gt_objects * (~(gt_objects == select_obj_id[0]))).cpu().int().numpy().astype(np.uint8)
             remain_obj = (gt_objects).cpu().int().numpy().astype(np.uint8)
             gt_rgb_mask = visualize_obj(gt_objects.cpu().numpy().astype(np.uint8))

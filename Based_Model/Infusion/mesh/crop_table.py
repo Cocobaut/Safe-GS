@@ -23,7 +23,7 @@ import open3d as o3d
 from scipy.spatial import ConvexHull, Delaunay
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gof.io_utils import unique_path  # noqa: E402
+from gof.io_utils import rel_to, unique_path  # noqa: E402
 
 
 def crop_boxes(transforms_path):
@@ -142,7 +142,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     path = unique_path(os.path.join(args.output_dir, args.name))
     o3d.io.write_triangle_mesh(path, out, write_ascii=False, compressed=False)
-    meta = {"source": os.path.abspath(args.mesh), "plane_normal": n.tolist(), "plane_d": float(d),
+    meta = {"source": rel_to(args.mesh, args.output_dir), "plane_normal": n.tolist(), "plane_d": float(d),
             "hull_2d": hull2d.tolist(), "basis_e1": e1.tolist(), "basis_e2": e2.tolist(),
             "height_range": [-args.below, float(h_max)], "views": args.views, "table_id": args.table_id,
             "object_ids": obj_ids, "vertices": len(used), "faces": int(keep_f.sum())}

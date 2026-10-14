@@ -1,11 +1,13 @@
 """
-Trích xuất mesh từ Gaussians của InFusion bằng logic của GOF (Based_Model/GOF/extract_mesh.py):
+Trích xuất mesh từ Gaussians (InFusion / 3DGIC) bằng logic của GOF (Based_Model/GOF/extract_mesh.py):
   1. Sinh điểm tứ diện từ các Gaussian (tâm + 8 góc box 3-sigma), lọc theo frustum camera
   2. Tam giác hóa Delaunay (tetra-triangulation / CGAL)
   3. Tính opacity tại mỗi đỉnh = 1 - min_view(transmittance) qua integrate() -> sdf = alpha - 0.5
   4. Marching tetrahedra + binary search 8 bước để đặt đỉnh đúng mặt mức 0.5
 
     python extract_mesh.py -m <model_path InFusion> --iteration 150 --output_dir <thư mục mesh> --texture_mesh
+    3DGIC (ply inpaint nằm ngoài point_cloud/, cameras.json ở model 3DGS gốc):
+    python extract_mesh.py --ply_path <.../3dgic_iteration_9999/point_cloud.ply> --cameras_json <.../3dgs/cameras.json>         --output_dir <thư mục mesh> --texture_mesh
 """
 import os
 import random
@@ -131,8 +133,10 @@ def marching_tetrahedra_with_binary_search(out_dir, views, gaussians, background
 
 
 def main():
-    parser = ArgumentParser(description="Trích xuất mesh GOF từ Gaussians của InFusion")
-    parser.add_argument("-m", "--model_path", required=True, help="Thư mục model InFusion (chứa point_cloud/, cameras.json)")
+    parser = ArgumentParser(description="Trích xuất mesh GOF từ Gaussians của InFusion / 3DGIC")
+    parser.add_argument("-m", "--model_path", default="", help="Thư mục model InFusion (chứa point_cloud/, cameras.json)")
+    parser.add_argument("--ply_path", default="", help="Đường dẫn ply trực tiếp (thay cho -m/--iteration), ví dụ ply 3DGIC")
+    parser.add_argument("--cameras_json", default="", help="cameras.json (mặc định <model_path>/cameras.json)")
     parser.add_argument("--iteration", default=150, type=int, help="Iteration của point cloud (InFusion cuối cùng: 150)")
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--mesh_name", default="mesh_gof.ply")
@@ -153,10 +157,12 @@ def main():
     torch.manual_seed(0)
     torch.cuda.set_device(torch.device("cuda:0"))
 
-    views = load_cameras_json(os.path.join(args.model_path, "cameras.json"), args.view_stride)
-    print(f"[i] {len(views)} camera")
+    cameras_json = args.cameras_json or os.path.join(args.model_path, "cameras.json")
+    ply_path = args.ply_path or os.path.join(args.model_path, "point_cloud", f"iteration_{args.iteration}", "point_cloud.ply")
+    views = load_cameras_json(cameras_json, args.view_stride)
+    print(f"[i] {len(views)} camera | ply {ply_path}")
     gaussians = GaussianModel()
-    gaussians.load_ply(os.path.join(args.model_path, "point_cloud", f"iteration_{args.iteration}", "point_cloud.ply"))
+    gaussians.load_ply(ply_path)
     print(f"[i] {gaussians.get_xyz.shape[0]} Gaussians, sh_degree {gaussians.max_sh_degree}")
     if args.use_3d_filter:
         gaussians.compute_3D_filter(views)

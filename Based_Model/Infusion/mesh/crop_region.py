@@ -23,7 +23,7 @@ import open3d as o3d
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from crop_table import crop_boxes, visible_labels  # noqa: E402
-from gof.io_utils import unique_path  # noqa: E402
+from gof.io_utils import rel_to, unique_path  # noqa: E402
 
 
 def top_views(labels_dir, boxes, ids, k):
@@ -107,7 +107,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     path = unique_path(os.path.join(args.output_dir, args.name))
     o3d.io.write_triangle_mesh(path, out, write_ascii=False, compressed=False)
-    meta = {"mesh": os.path.abspath(args.mesh), "ref_mesh": os.path.abspath(args.ref_mesh), "ids": ids, "views": views,
+    meta = {"mesh": rel_to(args.mesh, args.output_dir), "ref_mesh": rel_to(args.ref_mesh, args.output_dir), "ids": ids, "views": views,
             "basis_e1": e1.tolist(), "basis_e2": e2.tolist(), "plane_normal": n.tolist(),
             "box_min": lo.tolist(), "box_max": hi.tolist(), "object_points": int(len(obj_pts)),
             "vertices": int(len(used)), "faces": int(keep_f.sum())}

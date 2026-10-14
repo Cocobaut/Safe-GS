@@ -33,7 +33,7 @@ import colorsys
 from scene.gamma_trans import LearningGammaTransform
 from scene.derect_light_sh import DirectLightEnv
 
-from edit_object_removal import points_inside_convex_hull
+from edit_object_removal import points_inside_convex_hull, select_mask
 from utils.ggutils import visualize_obj, feature_to_rgb
 
 
@@ -280,7 +280,8 @@ def finetune_inpaint(is_pbr, pbr_kwargs, dataset, pipe, opt, model_path, iterati
     with torch.no_grad():
         logits3d = classifier(gaussians._objects_dc.permute(2,0,1))
         prob_obj3d = torch.softmax(logits3d,dim=0)
-        mask = prob_obj3d[selected_obj_ids, :, :] > removal_thresh
+        # sum over selected IDs: one object split across several SAM2 IDs would otherwise fail a per-ID threshold
+        mask = prob_obj3d[selected_obj_ids, :, :].sum(dim=0, keepdim=True) > removal_thresh
         mask3d = mask.any(dim=0).squeeze()
 
         mask3d_convex = points_inside_convex_hull(gaussians._xyz.detach(),mask3d,outlier_factor=1.0)
@@ -306,7 +307,7 @@ def finetune_inpaint(is_pbr, pbr_kwargs, dataset, pipe, opt, model_path, iterati
         cam = viewpoint_stack.pop(ref_id-1)
         depth = (cam.depths).float().permute(2,0,1)
         gt_obj = depth[-1].long().cuda()
-        gt_mask = (gt_obj == selected_obj_ids[0])
+        gt_mask = select_mask(gt_obj, selected_obj_ids)
         ref_view_name.append(cam.image_name)
         # point, _ = get_init_points(cam, custom_mask=gt_mask)
         point, _ = get_init_points(cam)
@@ -444,7 +445,7 @@ def finetune_inpaint(is_pbr, pbr_kwargs, dataset, pipe, opt, model_path, iterati
         depth = (viewpoint_cam.depths).float().permute(2,0,1)
         cam_name = viewpoint_cam.image_name
         gt_obj = depth[-1].long().cuda()
-        gt_mask = (gt_obj == selected_obj_ids[0])
+        gt_mask = select_mask(gt_obj, selected_obj_ids)
         mask2d = (viewpoint_cam.objects > 128).squeeze().cuda()
         if torch.equal(mask2d.long(), torch.zeros_like(mask2d)):
             if depth.shape[0] > 3:
@@ -610,7 +611,7 @@ def finetune_inpaint(is_pbr, pbr_kwargs, dataset, pipe, opt, model_path, iterati
                 # print(logits.shape)
                 # print(cls_criterion(logits.unsqueeze(0), gt_obj.unsqueeze(0)).shape)
                 # input()
-                loss_obj = (cls_criterion(logits.unsqueeze(0), gt_obj.unsqueeze(0)).squeeze()*(~(gt_obj == selected_obj_ids[0]))).mean()
+                loss_obj = (cls_criterion(logits.unsqueeze(0), gt_obj.unsqueeze(0)).squeeze()*(~select_mask(gt_obj, selected_obj_ids))).mean()
                 loss_obj = loss_obj / torch.log(torch.tensor(logits.shape[0]))
 
                 ### reg_loss_3d
@@ -641,9 +642,9 @@ def finetune_inpaint(is_pbr, pbr_kwargs, dataset, pipe, opt, model_path, iterati
                 
                 
                 print(loss_2d)
-                # loss_2d += loss_depth * 0.1 
-                print(loss_depth)
-                
+                # loss_2d += loss_depth * 0.1
+                # print(loss_depth)  # NameError when a reference view is drawn before any other view
+
                 if _use_ref == True:
                     loss_2d = loss_2d*1.0
                 torchvision.utils.save_image((depth[3:6]).detach().cpu(), 'test_gt.png')
@@ -710,7 +711,9 @@ def finetune_inpaint(is_pbr, pbr_kwargs, dataset, pipe, opt, model_path, iterati
                 else:
                     loss_2d = l1_loss(depth[3:6], image)
             else:
-                loss_2d = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * lpips_loss
+                # object not visible in this view: Ll1/lpips_loss here would be stale tensors from the
+                # previous iteration (or undefined on iteration 0), so supervise the whole image instead
+                loss_2d = l1_loss(image, viewpoint_cam.original_image.cuda())
             if iteration % opt.reg3d_interval == 0:
                 # regularize at certain intervals
                 logits3d = classifier(gaussians._objects_dc.permute(2,0,1))
