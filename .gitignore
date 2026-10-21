@@ -243,3 +243,14 @@ Data/Replica/
 !Data/**/*.md
 
 outpus/
+
+# Dữ liệu và kết quả pipeline (vài chục GB): không đưa lên git, chỉ giữ README / tài liệu .md trong Data/
+Data/**
+!Data/**/
+!Data/**/*.md
+share/
+*.zip
+*.db
+
+# Cấu hình riêng của Claude Code trên từng máy
+.claude/
