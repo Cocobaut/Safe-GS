@@ -48,16 +48,13 @@ Project_Safe_GS/
 │   │   ├── marching_tetrahedra.py      # Marching Tetrahedra từ Delaunay tetrahedral grid
 │   │   └── level_set_solver.py         # Binary Search 8 bước tìm đẳng diện 0.5
 │   │
-│   ├── module5_postprocessing/         # Module 5: Gộp mesh, làm sạch, Watertight Sewing
-│   │   ├── mesh_cleaner.py             # Lọc floaters, tam giác dị hình, isolated vertices
-│   │   ├── adaptive_decimator.py       # Gộp lưới Macro (thô) - Micro (mịn) theo Task ROI
-│   │   └── watertight_sewer.py         # May kín đường biên tiếp giáp (Boundary Sewing)
-│   │
-│   └── module6_physics/                # Module 6: Physics Engine Integration & Topology Guard
-│       ├── env_mujoco.py               # Môi trường mô phỏng MuJoCo / PyBullet
-│       ├── collision_verifier.py       # Đo va chạm ma (FP) và kiểm tra bảo toàn lỗ rỗng quai cầm (FN)
-│       ├── topology_guard.py           # State Machine 5 trạng thái quản lý hoán đổi an toàn
-│       └── benchmarks.py               # Đo Simulation FPS, tỷ lệ nổ mô phỏng (NaN force)
+|   +-- Module4-Physic_Engine/          # Module 4: Physics engine integration
+|       +-- preprocessing/             # Mesh cleaning, topology, adaptive QEM, collision assets
+|       |   +-- Input/<dataset>/
+|       |   +-- Output/<dataset>/
+|       +-- simulation/                # MuJoCo scenes, tasks, topology guard, benchmarks
+|       |   +-- Output/<dataset>/
+|       +-- docs/
 │
 ├── scripts/                            # Entry points trực quan theo tiến trình
 │   ├── 01_run_perception.py            # Chạy Module 1 (SfM + Segment)
@@ -65,8 +62,8 @@ Project_Safe_GS/
 │   ├── 02_run_roi_3d.py                # Chạy Module 2 - Nhánh ROI 3D
 │   ├── 03_run_object_and_compose.py    # Chạy Module 3 (Object-GS -> Composed 3DGS)
 │   ├── 04_run_gof_meshing.py           # Chạy Module 4 (Trích xuất Mesh thô từ Composed-3DGS)
-│   ├── 05_run_postprocessing.py        # Chạy Module 5 (Decimation + Watertight Mesh)
-│   └── 06_run_simulation.py            # Chạy Module 6 (Nạp Mesh vào Simulator kiểm thử)
+│   ├── 05_run_postprocessing.py        # Chạy Module 4 preprocessing (Decimation + Watertight Mesh)
+│   └── 06_run_simulation.py            # Chạy Module 4 simulation (Nạp Mesh vào Simulator kiểm thử)
 │
 ├── tests/                              # Unit tests kiểm tra từng module
 │   ├── test_roi_projection.py
@@ -77,3 +74,6 @@ Project_Safe_GS/
 ├── requirements.txt
 └── README.md
 ```
+
+
+Physics preprocessing and MuJoCo simulation now live inside `src/Module4-Physic_Engine/`. Keep using scripts 05/06; dataset paths are documented there.
