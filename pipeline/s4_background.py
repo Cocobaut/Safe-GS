@@ -131,16 +131,16 @@ def main():
     S = load_scene(args, model, pipe, ss, ply_path=ply)
     g = S["g"]
 
-    # ảnh đích (đã inpaint) cho các view đã đăng ký
+    # ảnh đích (đã inpaint) chỉ cho view train: 23 view test (--eval) giữ nguyên để S10 đo held-out
     inp = Path(args.inpainted)
     targets = {}
-    for v in S["views"]:
+    for v in S["train"]:
         f = inp / f"{view_name(v)}.png"
         if f.exists():
             im = cv2.imread(str(f))[..., ::-1].astype(np.float32) / 255.0
             im = cv2.resize(im, (int(v.image_width), int(v.image_height)), interpolation=cv2.INTER_AREA)
             targets[view_name(v)] = torch.from_numpy(im).permute(2, 0, 1).contiguous().cuda()
-    views = [v for v in S["views"] if view_name(v) in targets]
+    views = [v for v in S["train"] if view_name(v) in targets]
     log(f"{len(views)} view có ảnh đích")
 
     ft = cfg["finetune"]

@@ -1,3 +1,9 @@
 [submodule "Based_Model/CoMe"]
 	path = Based_Model/CoMe
 	url = https://github.com/r4dl/CoMe.git
+[submodule "Based_Model/Inpaint360GS"]
+	path = Based_Model/Inpaint360GS
+	url = https://github.com/dfki-av/Inpaint360GS.git
+[submodule "Based_Model/ObjectGS"]
+	path = Based_Model/ObjectGS
+	url = https://github.com/RuijieZhu94/ObjectGS.git

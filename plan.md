@@ -191,3 +191,12 @@ Cấu trúc thư mục `Data/` mô tả trong `Data/README.md`.
   sửa bằng `attach` (bánh gắn vào đĩa). Sau sửa: settle dời tối đa 1.4 mm; lift_coc_su cốc nhấc 20 cm, rơi về đúng chỗ;
   drop_all: cốc đổ, ly lăn, táo lăn 0.84 m (hợp lý). Video: `Data/teatime/pipeline/v1/S9_render/<kịch bản>/<camera>.mp4`.
   Còn: chỗ cốc vừa nhấc lên mặt bàn nhoè (S4); SH bậc cao không xoay theo vật; chất lỏng trong ly không mô phỏng.
+- 2026-10-21: **S10 đo lường** (`modal_pipeline.py::run --only S10`, `pipeline/s10_eval_{gpu,cpu}.py`, `s10_report.py`;
+  bảng: `Data/teatime/pipeline/v1/S10_eval/eval_report.md`). Benchmark LERF-Mask teatime (Gaussian Grouping, đặt trên
+  Volume `teatime/benchmarks/lerf_mask/teatime`), căn COLMAP của họ về của mình bằng Umeyama (RMS tâm camera 0.49 cm).
+  Kết quả: LERF-Mask mIoU/mBIoU 68.0/65.0 (GG 71.7/66.1, Gaga 71.2/68.4, ILGS 84.3/75.5 theo Gaga Table 1);
+  yếu: spoon handle 0 (không có ID riêng), tea in a glass 25, cookies on a plate 56, sheep 62.
+  Sửa lỗi rò rỉ: S4b trước tinh chỉnh cả 23 view test -> giờ chỉ view train (S4b chạy lại; video S9 vẫn từ nền cũ).
+  Sau sửa: nền ngoài vùng vật 23.74 dB = cảnh gốc 23.73; chỗ vật vừa đứng chỉ 48% pixel trong 1 cm mặt bàn, độ nét
+  0.31 vs 1.82 ảnh thật (nhoè); ghép lại 22.62 dB (mất 0.7 dB so với S2). Mesh: 0/7 kín, Chamfer 2.5-3.9 mm.
+  `pull` lỗi FileExistsError ở S7_physics (chưa xem), file S10 đã tải đủ.

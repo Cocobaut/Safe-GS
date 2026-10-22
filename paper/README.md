@@ -30,6 +30,8 @@ Từ cảnh CoMe (teatime, 1.8M Gaussian) + mask SAM2 có ID (bị tách vụn, 
 | 10 | [Occlusion-Robust Multi-Object Decoupling](10_OcclusionRobustDecoupling.md) | arXiv 06/2026 | **Không** | 2 + 3 + physics | Có | Khó (SDS) | Nhiều vật bị che, ra MPM |
 | 11 | [GASE](11_GASE.md) | arXiv 06/2026 | **Chưa** ("will be released") | 1 + 3 + sim | Có | ? | Hệ thống real-to-sim hoàn chỉnh |
 | 12 | [Semantic-Guided Progressive Removal](12_ProgressiveObjectRemoval.md) | arXiv 07/2026 | **Không** | 3 (nền) | Có | ? | Inpaint nền sau khi xoá vật |
+| 14 | [Khảo sát inpainting 3D / xoá vật 2026](14_Inpainting_SOTA_2026.md) | 2025-2026 | Inpaint360GS, AuraFusion360, ROSE, VOID có | 4 (nền) | | | 3DTexMOR, CoIn, GOR-IS, Inpaint360GS, VOR-Bench |
+| 15 | [Train có ID vật để xoá sạch (2026)](15_ObjectAware_Training_2026.md) | 2025-2026 | ObjectGS có (MIT) | 2 (tách sạch) | Có | Được (Scaffold-GS) | ObjectGS teatime 88.9, OP2GS, ObjectSplat, Remove360 |
 | 13 | [Baseline: Gaussian Grouping, SAGA](13_Baselines_GaussianGrouping_SAGA.md) | ECCV 2024 / AAAI 2025 | Có | 1, 2 | Có | Gaussian Grouping nặng (34 GB) | Baseline hay được so sánh |
 
 Đã xem nhưng không làm note riêng (không tìm thấy code): Lifting by Gaussians (WACV 2025, arXiv 2502.00173),

@@ -39,15 +39,16 @@ app = modal.App("safe-gs-pipeline")
 vol = mc.vol
 VOL = mc.VOL
 REPO_DIR = Path(__file__).resolve().parent
-STAGES = ["S0", "S1", "S2", "S3", "S4a", "S4b", "S5", "S6", "S7", "S8", "S9"]
+STAGES = ["S0", "S1", "S2", "S3", "S4a", "S4b", "S5", "S6", "S7", "S8", "S9", "S10"]
 DEPS = {"S0": [], "S1": [], "S2": ["S0"], "S3": ["S1", "S2"], "S4a": ["S3"], "S4b": ["S3", "S4a"],
-        "S5": ["S3"], "S6": ["S3", "S5"], "S7": ["S6"], "S8": ["S7"], "S9": ["S4b", "S5", "S6", "S8"]}
+        "S5": ["S3"], "S6": ["S3", "S5"], "S7": ["S6"], "S8": ["S7"], "S9": ["S4b", "S5", "S6", "S8"],
+        "S10": ["S4b", "S5", "S6", "S8"]}
 CFG_KEY = {"S0": "S0_colmap", "S1": "S1_masks", "S2": "S2_come", "S3": "S3_label", "S4a": "S4_background",
            "S4b": "S4_background", "S5": "S5_objects", "S6": "S6_mesh", "S7": "S7_physics", "S8": "S8_sim",
-           "S9": "S9_render"}
+           "S9": "S9_render", "S10": "S10_eval"}
 DIRNAME = {"S0": "S0_colmap", "S1": "S1_masks", "S2": "S2_come", "S3": "S3_label", "S4a": "S4a_inpaint",
            "S4b": "S4b_background", "S5": "S5_objects", "S6": "S6_mesh", "S7": "S7_physics", "S8": "S8_sim",
-           "S9": "S9_render"}
+           "S9": "S9_render", "S10": "S10_eval"}
 
 def _src(img):
     """Mọi container cần module modal_come (dùng chung Volume, image, hàm log/checkpoint)."""
@@ -372,6 +373,39 @@ def s9(cfg: dict, force: bool = False):
     return "done"
 
 
+@app.function(image=sim_img, timeout=1800, **CPU_KW)
+def _s10_cpu(cfg: dict):
+    """Phần CPU của S10 (mesh S6 + mô phỏng S8) rồi gộp bảng; mỗi phần có json riêng làm checkpoint."""
+    vol.reload()
+    d = _sdir(cfg, "S10")
+    if not (d / "eval_cpu.json").exists():
+        _run_cpu(cfg, "S10", "s10_eval_cpu.py", f"--s5 {_sdir(cfg, 'S5')} --s6 {_sdir(cfg, 'S6')} "
+                                                f"--s7 {_sdir(cfg, 'S7')} --s8 {_sdir(cfg, 'S8')}")
+    mc._run_train(f"python /opt/pipeline/s10_report.py --gpu {d / 'eval_gpu.json'} --cpu {d / 'eval_cpu.json'} --out {d}",
+                  "/opt/pipeline", Path(VOL) / cfg["scene"] / "logs" / "pipeline_S10.log")
+    vol.commit()
+
+
+@app.function(image=pipe_image, timeout=3 * 3600, **GPU_KW)
+def s10(cfg: dict, force: bool = False):
+    """Đo lường mọi stage (pipeline/s10_*.py). Cần LERF-Mask teatime trên Volume tại S10_eval.lerf_dir."""
+    if _done(cfg, "S10") and not force:
+        return "skip"
+    t0 = time.time(); d = _begin(cfg, "S10", force)
+    V = Path(VOL) / cfg["scene"]
+    if not (d / "eval_gpu.json").exists():
+        _run_script(cfg, "S10", "s10_eval_gpu.py",
+                    f"--lerf {Path(VOL) / cfg['S10_eval']['lerf_dir']} --s3 {_sdir(cfg, 'S3')} "
+                    f"--s4b {_sdir(cfg, 'S4b')} --s5 {_sdir(cfg, 'S5')} --s4a {_sdir(cfg, 'S4a')} "
+                    f"--labels {Path(VOL) / cfg['S1_masks']['labels_dir']} "
+                    f"--n_input {len(list((V / 'colmap' / 'input').glob('*.jpg')))}")
+    vol.commit()
+    _s10_cpu.remote(cfg)
+    vol.reload()
+    _finish(cfg, "S10", t0)
+    return "done"
+
+
 @app.function(image=pipe_image, timeout=1800, gpu="L4", volumes={VOL: vol}, cpu=8, memory=32768)
 def debug_tsdf(cfg: dict, obj: str = "coc_su", chunks: str = "50000,200000,1000000"):
     data, local = _prep_come(cfg)
@@ -394,7 +428,7 @@ def dbg(config: str = "configs/pipeline/teatime_v1.json", obj: str = "coc_su", c
 
 
 FN = {"S0": s0, "S1": s1, "S2": s2, "S3": s3, "S4a": s4a, "S4b": s4b, "S5": s5, "S6": s6, "S7": s7, "S8": s8,
-      "S9": s9}
+      "S9": s9, "S10": s10}
 
 
 # ============================================================================================ điều phối (máy local)

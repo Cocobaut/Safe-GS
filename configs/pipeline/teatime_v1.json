@@ -88,6 +88,23 @@
     }
   },
 
+  "S10_eval": {
+    "_comment": "Đo lường. lerf_prompts: prompt LERF-Mask (Gaussian Grouping) -> ID mask SAM2 của mình (tra tay trên vis/ + ảnh GT); [] = không có nhóm tương ứng (tính IoU 0, báo riêng). spoon handle: cái thìa nằm chung ID 22 với cốc.",
+    "lerf_dir": "teatime/benchmarks/lerf_mask/teatime",
+    "lerf_prompts": {
+      "apple": [44],
+      "bag of cookies": [15],
+      "coffee mug": [22],
+      "cookies on a plate": [99, 61, 75],
+      "paper napkin": [11],
+      "plate": [17],
+      "sheep": [4, 27],
+      "spoon handle": [],
+      "stuffed bear": [2, 9],
+      "tea in a glass": [29]
+    }
+  },
+
   "S9_render": {
     "_comment": "Render Gaussian (nền S4b + vật S5 theo pose S8) từ các góc camera thật.",
     "cameras": ["frame_00108", "frame_00041"],
