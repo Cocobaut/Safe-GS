@@ -1,0 +1,113 @@
+{
+  "_comment": "Pipeline Safe-GS v1 cho teatime (S0-S6). Mỗi stage lưu config_used.json + _done.json vào output của nó. Đổi tham số của 1 stage -> stage đó và các stage sau chạy lại (hash config). Xem pipeline/README.md.",
+  "scene": "teatime",
+  "run_name": "v1",
+
+  "S0_colmap": {
+    "_comment": "Dùng lại kết quả modal_come.py::colmap_teatime (COLMAP 3.11.1 CUDA, đúng lệnh convert.py, PINHOLE).",
+    "camera": "PINHOLE"
+  },
+
+  "S1_masks": {
+    "_comment": "v1: mask SAM2 của team (ID giữ qua video, còn vụn). Nâng cấp: SAM 3 prompt chữ (cần quyền HF facebook/sam3).",
+    "source": "team_sam2",
+    "labels_dir": "teatime/sam2_masks/labels"
+  },
+
+  "S2_come": {
+    "_comment": "Dùng lại modal_come.py::train_teatime (CoMe, cờ run_tnt/run_scn, 30k iter).",
+    "iterations": 30000
+  },
+
+  "S3_label": {
+    "_comment": "Gán Gaussian cho vật bằng vote theo đóng góp render (gradient theo màu, như paper Gradient-Driven / FlashSplat). Nhóm vật = danh sách ID mask; merge_graph đề xuất gộp ID theo đồng xuất hiện 3D.",
+    "objects": {
+      "coc_su": [22],
+      "ly_tra": [29],
+      "dia": [17],
+      "banh_quy_1": [99],
+      "banh_quy_2": [61],
+      "tao": [44],
+      "tui_banh": [15],
+      "hop_kem_sua": [67]
+    },
+    "support": {"ban": [1, 65]},
+    "assign_ratio": 0.5,
+    "min_total_weight": 1e-4,
+    "view_stride": 1,
+    "merge_graph": {"enabled": true, "view_stride": 3, "min_frames_visible": 20, "share": 0.3, "overlap": 0.5, "auto_merge_objects": true},
+    "interior_knn": {"enabled": true, "k": 8, "radius_scale": 3.0},
+    "preview_frames": ["frame_00006", "frame_00041", "frame_00085", "frame_00108"]
+  },
+
+  "S4_background": {
+    "_comment": "Nền: inpaint video (ProPainter) vùng mask của các vật + tinh chỉnh riêng Gaussian nền theo ảnh đã inpaint. Thêm Gaussian phẳng lấp chỗ vật trên mặt bàn trước khi tinh chỉnh.",
+    "propainter": {"mask_dilation": 8, "subvideo_length": 50, "fp16": true, "neighbor_length": 10, "ref_stride": 10},
+    "plane_fill": {"enabled": true, "grid": 0.01, "dilate_cells": 2, "opacity": 0.9},
+    "finetune": {"iterations": 3000, "ckpt_every": 500, "lambda_dssim": 0.2, "lr_scale": 0.5}
+  },
+
+  "S5_objects": {
+    "_comment": "v1: xuất Gaussian từng vật + vết tiếp xúc trên mặt bàn (đóng đáy làm ở S6). Nâng cấp: SAM 3D Objects (cần quyền HF facebook/sam-3d-objects).",
+    "completion": "plane_cap"
+  },
+
+  "S6_mesh": {
+    "_comment": "Mesh vật: marching cubes mức 0.5 trên trường opacity GOF của riêng vật -> cắt theo mặt bàn + đóng nắp -> CoACD. Nền: bàn = hộp, sàn = mặt phẳng. Scale về mét theo chiều cao bàn.",
+    "table_height_m": 0.75,
+    "grid_res": 128,
+    "coacd_threshold": 0.05,
+    "cut_offset": 0.0
+  },
+
+  "S7_physics": {
+    "_comment": "v1: khối lượng thật ước lượng tay (vật rỗng như cốc/ly không tính được bằng thể tích x khối lượng riêng vì mesh va chạm đặc). Nâng cấp: VLM / PhysGS.",
+    "objects": {
+      "coc_su": {"mass_kg": 0.35, "friction": 0.6},
+      "ly_tra": {"mass_kg": 0.30, "friction": 0.5},
+      "dia": {"mass_kg": 0.45, "friction": 0.5},
+      "banh_quy_1": {"mass_kg": 0.025, "friction": 0.8},
+      "banh_quy_2": {"mass_kg": 0.025, "friction": 0.8},
+      "tao": {"mass_kg": 0.18, "friction": 0.6},
+      "tui_banh": {"mass_kg": 0.20, "friction": 0.7}
+    },
+    "attach": {"banh_quy_1": "dia", "banh_quy_2": "dia"},
+    "default_density_kg_m3": 500,
+    "default_friction": 0.6,
+    "table_friction": 0.6
+  },
+
+  "S8_sim": {
+    "_comment": "MuJoCo. settle: để yên; drop_all: nâng các vật lên (cao dần) + nghiêng nhẹ rồi thả; lift: nhấc vật lên height_m, giữ, thả.",
+    "timestep": 0.002,
+    "fps": 30,
+    "scenarios": {
+      "settle": {"t_total": 2.0},
+      "drop_all": {"t_total": 3.0, "base_offset_m": 0.05, "step_m": 0.06, "tilt_deg": 10},
+      "lift": {"objects": ["coc_su"], "height_m": 0.20, "t_up": 1.0, "t_hold": 1.0, "t_total": 4.0}
+    }
+  },
+
+  "S10_eval": {
+    "_comment": "Đo lường. lerf_prompts: prompt LERF-Mask (Gaussian Grouping) -> ID mask SAM2 của mình (tra tay trên vis/ + ảnh GT); [] = không có nhóm tương ứng (tính IoU 0, báo riêng). spoon handle: cái thìa nằm chung ID 22 với cốc.",
+    "lerf_dir": "teatime/benchmarks/lerf_mask/teatime",
+    "lerf_prompts": {
+      "apple": [44],
+      "bag of cookies": [15],
+      "coffee mug": [22],
+      "cookies on a plate": [99, 61, 75],
+      "paper napkin": [11],
+      "plate": [17],
+      "sheep": [4, 27],
+      "spoon handle": [],
+      "stuffed bear": [2, 9],
+      "tea in a glass": [29]
+    }
+  },
+
+  "S9_render": {
+    "_comment": "Render Gaussian (nền S4b + vật S5 theo pose S8) từ các góc camera thật.",
+    "cameras": ["frame_00108", "frame_00041"],
+    "fps": 30
+  }
+}
