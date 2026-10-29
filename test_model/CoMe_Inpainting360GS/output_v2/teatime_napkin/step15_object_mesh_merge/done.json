@@ -1,0 +1,9 @@
+{
+  "variant": "napkin_v2",
+  "source_ply": "/vol/come360/mesh_input/napkin_v2/point_cloud_44_closed.ply",
+  "mesh": "mesh_faster_binary_search_7.ply",
+  "n_vertices": 125190,
+  "n_faces": 252096,
+  "minutes": 0.2,
+  "command": "extract_mesh_tets.py -m <model> -s /vol/come360/data/teatime_napkin_views --iteration 1 (CoMe defaults)"
+}

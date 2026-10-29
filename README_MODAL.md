@@ -230,31 +230,6 @@ python -m modal volume rm -r safe-gs-outputs infusion/teatime/inpaint
 
 ---
 
-## 6d. 3DGIC Trên LERF teatime (`modal_3dgic.py`)
-
-Chạy trên workspace **datduongtandat385** (profile `tandat`). Kiểm tra bằng `python -m modal profile current`. Nếu cần quay lại workspace cũ: `python -m modal profile activate quangkhaisaigonhcm`. Volume `safe-gs-3dgic` chỉ có ở workspace tandat. Các volume cũ (`safe-gs-dataset`, `safe-gs-outputs`) nằm ở workspace quangkhaisaigonhcm.
-
-Dữ liệu dùng lại từ InFusion, không chạy lại SAM2/COLMAP. Gồm ảnh đã crop và `sparse/0` trong `F:\LERF Datasets\teatime\teatime\infusion_data`, cùng label map SAM2 trong `...\mask\labels`. Label được crop giống ảnh rồi dùng trực tiếp làm `object_mask` (pixel = ID vật).
-
-| # | Việc | Lệnh | Chạy ở |
-|---|------|------|--------|
-| 1 | Upload dữ liệu từ máy | `python -m modal run modal_3dgic.py::upload --scene teatime` | Local |
-| 2 | Tạo `object_mask` (crop label) | `python -m modal run modal_3dgic.py::prepare --scene teatime` | Modal CPU |
-| 3 | Kiểm tra extension + đọc scene + 1 bước forward/backward | `python -m modal run modal_3dgic.py::verify --scene teatime` | Modal L4 (~2 phút) |
-| 4 | Train 3DGS + object feature, 40k iter | `python -m modal run modal_3dgic.py::train --scene teatime` | Modal L4 (vài giờ) |
-| 5 | **Chọn ID vật** rồi xóa vật | `python -m modal run modal_3dgic.py::removal --scene teatime --ids 11 --run obj11` | Modal L4 |
-| 6 | Depth-guided mask + gợi ý view tham chiếu | `python -m modal run modal_3dgic.py::depth_mask --scene teatime --run obj11` | Modal L4 |
-| 7 | **Chọn ID ảnh tham chiếu**, LaMa inpaint RGB + depth | `python -m modal run modal_3dgic.py::inpaint_ref --scene teatime --run obj11 --ref-ids 12,60` | Modal L4 |
-| 8 | 3D inpainting -> 3DGS hoàn chỉnh | `python -m modal run modal_3dgic.py::inpaint_3d --scene teatime --run obj11` | Modal L4 |
-| 9 | Trích mesh bằng GOF (code ở `Based_Model/3DGIC/mesh`) | `python -m modal run modal_3dgic.py::extract_mesh --scene teatime --run obj11` | Modal L4 (~20-25 phút) |
-| 10 | Cắt mesh quanh bàn (vùng cắt `*_crop.json` đã có) | `python -m modal run modal_3dgic.py::crop_mesh --scene teatime --run obj11 --frame-json crop_frames/teatime_table_v2_crop.json` | Modal CPU |
-
-- **Bước 5:** xem ID trong `F:\LERF Datasets\teatime\teatime\mask\vis\*.jpg` và `overview.jpg`. Cùng một vật có thể mang nhiều ID ở các góc khác nhau, khi đó truyền đủ, ví dụ `--ids 2,6,9`. Code đã được sửa để nhận nhiều ID (bản gốc chỉ dùng ID đầu tiên). Mỗi `--run` có thư mục data/output riêng và không ghi đè run cũ. Kiểm tra video `output/teatime/<run>/train/ours_object_removal/iteration_40000/concat/result.mp4`.
-- **Bước 7:** `ref_id` = số frame (ví dụ 12 = `frame_00012`). Tải `output/teatime/<run>/ref_candidates.jpg` về để chọn. Nên chọn 1-3 view ở các góc khác nhau và có vùng đỏ (vùng không view nào nhìn thấy) lớn. Kết quả inpaint xem ở `output/teatime/<run>/ref_inpaint`. Có thể chạy lại bước 7 với ref khác hoặc `--dilate` khác (bản gốc được giữ trong `ref_backup`), miễn là chưa chạy bước 8.
-- **Đầu ra:** `output/teatime/<run>/point_cloud_object_inpaint/3dgic_iteration_9999/point_cloud.ply`, ảnh render ở `train/ours_object_inpaint/3dgic_iteration_9999/renders`. Tải về bằng `python -m modal volume get safe-gs-3dgic output/teatime/<run>/point_cloud_object_inpaint/3dgic_iteration_9999 Based_Model/3DGIC/output/teatime_<vật>/` (xem `Based_Model/3DGIC/output/README.md`; InFusion: `Based_Model/Infusion/output/README.md`).
-
----
-
 ## 7. Tải Kết Quả Từ Cloud Về Máy Tính
 
 Sau khi huấn luyện xong, bạn tải kết quả từ Cloud Volume về máy tính:

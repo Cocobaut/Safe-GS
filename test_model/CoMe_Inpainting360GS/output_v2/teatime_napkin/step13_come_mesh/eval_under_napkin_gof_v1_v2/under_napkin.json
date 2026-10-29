@@ -1,0 +1,106 @@
+{
+  "napkin_extent": 0.8514,
+  "cell": 0.0213,
+  "tol": 0.017,
+  "footprint_cells": 1101,
+  "meshes": {
+    "1_GOF_InFusion_with_napkin": {
+      "file": "F:/Safe-GS/test_model/CoMe_Infusion/Step_6_Mesh_GOF/mesh_gof_table.ply",
+      "vertices_in_footprint_column": 79374,
+      "coverage_table_layer_within_tol": 0.4242,
+      "empty_cells": 0.0145,
+      "dent_cells_below_tol": 0.049,
+      "raised_cells_above_tol": 0.5123,
+      "table_layer_height_p05_p50_p95": [
+        -0.0168,
+        0.0221,
+        0.1098
+      ],
+      "table_layer_roughness_std_covered": 0.00788,
+      "band_normals_mean_abs_dot": 0.8381,
+      "band_normals_tilted_gt_20deg": 0.4331,
+      "cells_with_surface_above_layer_gt_tol": 0.4351,
+      "fragments_off_table": {
+        "count": 0,
+        "faces": 0,
+        "largest": []
+      }
+    },
+    "2_CoMe_v1": {
+      "file": "outputs/teatime_napkin/step13_come_mesh/mesh_come_v1_table.ply",
+      "vertices_in_footprint_column": 283386,
+      "coverage_table_layer_within_tol": 0.9055,
+      "empty_cells": 0.0,
+      "dent_cells_below_tol": 0.0454,
+      "raised_cells_above_tol": 0.049,
+      "table_layer_height_p05_p50_p95": [
+        -0.0163,
+        -0.0001,
+        0.017
+      ],
+      "table_layer_roughness_std_covered": 0.00696,
+      "band_normals_mean_abs_dot": 0.879,
+      "band_normals_tilted_gt_20deg": 0.4433,
+      "cells_with_surface_above_layer_gt_tol": 0.0836,
+      "fragments_off_table": {
+        "count": 6,
+        "faces": 161,
+        "largest": [
+          {
+            "faces": 54,
+            "height_min": 0.0359,
+            "height_max": 0.0433
+          },
+          {
+            "faces": 44,
+            "height_min": -0.0291,
+            "height_max": -0.025
+          },
+          {
+            "faces": 41,
+            "height_min": -0.0287,
+            "height_max": -0.0201
+          }
+        ]
+      }
+    },
+    "3_CoMe_v2": {
+      "file": "output_v2/teatime_napkin/step13_come_mesh/mesh_come_v2_table.ply",
+      "vertices_in_footprint_column": 337805,
+      "coverage_table_layer_within_tol": 0.9382,
+      "empty_cells": 0.0009,
+      "dent_cells_below_tol": 0.0609,
+      "raised_cells_above_tol": 0.0,
+      "table_layer_height_p05_p50_p95": [
+        -0.0191,
+        -0.0053,
+        0.0061
+      ],
+      "table_layer_roughness_std_covered": 0.00552,
+      "band_normals_mean_abs_dot": 0.9147,
+      "band_normals_tilted_gt_20deg": 0.3442,
+      "cells_with_surface_above_layer_gt_tol": 0.0345,
+      "fragments_off_table": {
+        "count": 6,
+        "faces": 232,
+        "largest": [
+          {
+            "faces": 118,
+            "height_min": 0.0213,
+            "height_max": 0.0255
+          },
+          {
+            "faces": 48,
+            "height_min": 0.0239,
+            "height_max": 0.0282
+          },
+          {
+            "faces": 44,
+            "height_min": 0.0276,
+            "height_max": 0.0326
+          }
+        ]
+      }
+    }
+  }
+}

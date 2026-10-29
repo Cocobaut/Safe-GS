@@ -1,0 +1,5 @@
+{
+  "n_masks_dilated": 30,
+  "n_inpainted_rgb": 30,
+  "n_inpainted_depth": 30
+}

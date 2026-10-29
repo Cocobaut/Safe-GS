@@ -243,3 +243,10 @@ Data/Replica/
 !Data/**/*.md
 
 outpus/
+*.db
+
+# Local-only test_model folders
+test_model/CoMe_Infusion/
+test_model/CoMe_Infusion_Inpainting/
+test_model/2D_inpainting/
+test_model/ID_synchornization/

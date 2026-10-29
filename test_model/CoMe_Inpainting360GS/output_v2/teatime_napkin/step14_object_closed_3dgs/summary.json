@@ -1,0 +1,35 @@
+{
+  "input_gaussians": 3734,
+  "prob_gt": 3325,
+  "after_opacity_height": 3101,
+  "kept_largest_cluster": 2975,
+  "extent": 0.8514,
+  "cell": 0.00851,
+  "eps": 0.00255,
+  "grid": [
+    109,
+    100
+  ],
+  "footprint_cells": 6295,
+  "border_cells": 288,
+  "footprint_covers_gaussian_cells": 1.0,
+  "top_height_p50_p95_max": [
+    0.0656,
+    0.2061,
+    0.2527
+  ],
+  "bottom_gaussians": 6295,
+  "wall_gaussians": 2483,
+  "closed_gaussians": 11753,
+  "bottom_offset_from_support_max": 0.0,
+  "support": {
+    "source": "rays onto mesh_come_v2_table.ply (median 5x5), table plane where missed",
+    "cells_on_mesh_in_footprint": 0.9981,
+    "support_height_p05_p50_p95_in_footprint": [
+      -0.013,
+      -0.0024,
+      0.0105
+    ]
+  },
+  "check_ok": true
+}

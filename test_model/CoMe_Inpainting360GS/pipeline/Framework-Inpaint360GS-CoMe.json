@@ -1,0 +1,600 @@
+{
+  "version": "32.6.1",
+  "pages": [
+    {
+      "id": "pipeline",
+      "name": "Pipeline",
+      "cells": [
+        {
+          "id": "1",
+          "type": "layer"
+        },
+        {
+          "id": "s1",
+          "type": "node",
+          "parent": "1",
+          "label": "Stage 1 – Data & CoMe 3DGS (reused from CoMe_Infusion, step 0–4)"
+        },
+        {
+          "id": "rgb",
+          "type": "node",
+          "parent": "1",
+          "label": "Multi-view RGB\n(177 views, 994×738)",
+          "html": "Multi-view RGB<br>(177 views, 994×738)"
+        },
+        {
+          "id": "i_rgb",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step0_frame00127.jpg"
+        },
+        {
+          "id": "colmap",
+          "type": "node",
+          "parent": "1",
+          "label": "SfM\nCOLMAP poses (step 0)",
+          "html": "<b>SfM</b><br><font style='font-size:10px'>COLMAP poses (step 0)</font>"
+        },
+        {
+          "id": "train",
+          "type": "node",
+          "parent": "1",
+          "label": "3DGS Training\nCoMe: 3DGS + CoMe losses, 30k it (step 1)",
+          "html": "<b>3DGS Training</b><br><font style='font-size:10px'>CoMe: 3DGS + CoMe losses, 30k it (step 1)</font>"
+        },
+        {
+          "id": "g3d",
+          "type": "node",
+          "parent": "1",
+          "label": "Scene 3DGS\n(render, step 2)",
+          "html": "Scene 3DGS<br>(render, step 2)"
+        },
+        {
+          "id": "i_g3d",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step2_frame00127_come_render.png"
+        },
+        {
+          "id": "rchk",
+          "type": "node",
+          "parent": "1",
+          "label": "Renderer check\nInpaint360GS code + CoMe rasterizer, PSNR 44 dB (step 4)",
+          "html": "<b>Renderer check</b><br><font style='font-size:10px'>Inpaint360GS code + CoMe rasterizer, PSNR 44 dB (step 4)</font>"
+        },
+        {
+          "id": "i_rchk",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step4_frame00127_new_renderer.png"
+        },
+        {
+          "id": "s2",
+          "type": "node",
+          "parent": "1",
+          "label": "Stage 2 – Segmentation & 3D ID (Inpaint360GS, step 5–7)"
+        },
+        {
+          "id": "hqsam",
+          "type": "node",
+          "parent": "1",
+          "label": "2D Segmentation\nHQ-SAM / CropFormer (step 5)",
+          "html": "<b>2D Segmentation</b><br><font style='font-size:10px'>HQ-SAM / CropFormer (step 5)</font>"
+        },
+        {
+          "id": "i_hqsam",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step5_frame00127_hqsam.png"
+        },
+        {
+          "id": "m2d",
+          "type": "node",
+          "parent": "1",
+          "label": "2D masks\n(per-frame IDs)",
+          "html": "2D masks<br>(per-frame IDs)"
+        },
+        {
+          "id": "sync",
+          "type": "node",
+          "parent": "1",
+          "label": "Mask ID Sync\nKey Object Management on 3DGS (step 6)",
+          "html": "<b>Mask ID Sync</b><br><font style='font-size:10px'>Key Object Management on 3DGS (step 6)</font>"
+        },
+        {
+          "id": "i_sync",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step6_frame00127_synced.png"
+        },
+        {
+          "id": "i_ids",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step6_frame00127_ids.jpg"
+        },
+        {
+          "id": "nid",
+          "type": "node",
+          "parent": "1",
+          "label": "Napkin ID = 44\n(auto: IoU 0.73 with ref. mask)",
+          "html": "Napkin ID = 44<br>(auto: IoU 0.73 with ref. mask)"
+        },
+        {
+          "id": "distill",
+          "type": "node",
+          "parent": "1",
+          "label": "ID Distillation\nID feature per Gaussian + classifier (step 7)",
+          "html": "<b>ID Distillation</b><br><font style='font-size:10px'>ID feature per Gaussian + classifier (step 7)</font>"
+        },
+        {
+          "id": "i_distill",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step7_frame00127_id_render.png"
+        },
+        {
+          "id": "g3did",
+          "type": "node",
+          "parent": "1",
+          "label": "3DGS with IDs\n+ classifier.pth",
+          "html": "3DGS with IDs<br>+ classifier.pth"
+        },
+        {
+          "id": "s3",
+          "type": "node",
+          "parent": "1",
+          "label": "Stage 3 – Removal & inpainting (Inpaint360GS v2 + CoMe loss, step 8–12)"
+        },
+        {
+          "id": "remove",
+          "type": "node",
+          "parent": "1",
+          "label": "Object Removal\nID 44 Gaussians (classifier + hull) (step 8)",
+          "html": "<b>Object Removal</b><br><font style='font-size:10px'>ID 44 Gaussians (classifier + hull) (step 8)</font>"
+        },
+        {
+          "id": "vcam",
+          "type": "node",
+          "parent": "1",
+          "label": "Virtual cameras\n30 views around object, rotation fixed (step 8)",
+          "html": "<b>Virtual cameras</b><br><font style='font-size:10px'>30 views around object, rotation fixed (step 8)</font>"
+        },
+        {
+          "id": "i_vorig",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step8_vframe00020_original.png"
+        },
+        {
+          "id": "i_vrem",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step8_vframe00020_removed.png"
+        },
+        {
+          "id": "samt",
+          "type": "node",
+          "parent": "1",
+          "label": "Inpaint masks\nSAM-Track on removed views (step 9)",
+          "html": "<b>Inpaint masks</b><br><font style='font-size:10px'>SAM-Track on removed views (step 9)</font>"
+        },
+        {
+          "id": "i_samt",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step9_vframe00020_mask.png"
+        },
+        {
+          "id": "lama",
+          "type": "node",
+          "parent": "1",
+          "label": "2D Inpainting (v2)\nLaMa colour + depth, mask dilated 20 px (step 10)",
+          "html": "<b>2D Inpainting (v2)</b><br><font style='font-size:10px'>LaMa colour + depth, mask dilated 20 px (step 10)</font>"
+        },
+        {
+          "id": "i_mdil",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step10_vframe00020_mask_dilated.png"
+        },
+        {
+          "id": "i_lrgb",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step10_vframe00020_lama_rgb.jpg"
+        },
+        {
+          "id": "i_ldep",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step10_vframe00020_lama_depth.png"
+        },
+        {
+          "id": "initv",
+          "type": "node",
+          "parent": "1",
+          "label": "Init view selection (v2)\ncleanest LaMa fill: view 00020",
+          "html": "<b>Init view selection (v2)</b><br><font style='font-size:10px'>cleanest LaMa fill: view 00020</font>"
+        },
+        {
+          "id": "inp3d",
+          "type": "node",
+          "parent": "1",
+          "label": "3DGS Inpainting\nInpaint360GS loss + CoMe loss, 5000 it (step 11)",
+          "html": "<b>3DGS Inpainting</b><br><font style='font-size:10px'>Inpaint360GS loss + CoMe loss, 5000 it (step 11)</font>"
+        },
+        {
+          "id": "final",
+          "type": "node",
+          "parent": "1",
+          "label": "Final inpainted 3DGS\n(render, step 12)",
+          "html": "Final inpainted 3DGS<br>(render, step 12)"
+        },
+        {
+          "id": "i_frem",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step12_frame00127_removed.png"
+        },
+        {
+          "id": "i_finp",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step12_frame00127_inpainted.png"
+        },
+        {
+          "id": "s4",
+          "type": "node",
+          "parent": "1",
+          "label": "Stage 4 – Background mesh (CoMe, step 13)"
+        },
+        {
+          "id": "mesh",
+          "type": "node",
+          "parent": "1",
+          "label": "Mesh Extraction\nCoMe tetrahedra (extract_mesh_tets)",
+          "html": "<b>Mesh Extraction</b><br><font style='font-size:10px'>CoMe tetrahedra (extract_mesh_tets)</font>"
+        },
+        {
+          "id": "i_mesh",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step13_frame00127_mesh_scene.png"
+        },
+        {
+          "id": "crop",
+          "type": "node",
+          "parent": "1",
+          "label": "Crop table\nprism over the RANSAC table plane",
+          "html": "<b>Crop table</b><br><font style='font-size:10px'>prism over the RANSAC table plane</font>"
+        },
+        {
+          "id": "table",
+          "type": "node",
+          "parent": "1",
+          "label": "Filled table mesh\nmesh_come_v2_table.ply",
+          "html": "Filled table mesh<br>mesh_come_v2_table.ply"
+        },
+        {
+          "id": "i_table",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step13_frame00127_mesh_table_filled.png"
+        },
+        {
+          "id": "i_table2",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step13_view_above_table_filled.png"
+        },
+        {
+          "id": "s5",
+          "type": "node",
+          "parent": "1",
+          "label": "Stage 5 – Object mesh placed on the filled table (step 14–15)"
+        },
+        {
+          "id": "objg",
+          "type": "node",
+          "parent": "1",
+          "label": "Object Gaussians ID 44\n(prob > 0.7, DBSCAN)",
+          "html": "Object Gaussians ID 44<br>(prob > 0.7, DBSCAN)"
+        },
+        {
+          "id": "i_objg",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step14_view_side_object_gaussians.png"
+        },
+        {
+          "id": "close",
+          "type": "node",
+          "parent": "1",
+          "label": "Predict underside (step 14)\nbottom = support + ε (rays onto filled table), walls",
+          "html": "<b>Predict underside (step 14)</b><br><font style='font-size:10px'>bottom = support + ε (rays onto filled table), walls</font>"
+        },
+        {
+          "id": "i_close",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step14_view_side_closed_gaussians.png"
+        },
+        {
+          "id": "i_hmap",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step14_support_height.png"
+        },
+        {
+          "id": "omesh",
+          "type": "node",
+          "parent": "1",
+          "label": "Object mesh\nCoMe tetrahedra, 87 views seeing the napkin",
+          "html": "<b>Object mesh</b><br><font style='font-size:10px'>CoMe tetrahedra, 87 views seeing the napkin</font>"
+        },
+        {
+          "id": "i_raw",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step15_view_side_raw_come_mesh.png"
+        },
+        {
+          "id": "solid",
+          "type": "node",
+          "parent": "1",
+          "label": "Height-field solid (step 15)\ntop = CoMe mesh, bottom = table + ε, watertight",
+          "html": "<b>Height-field solid (step 15)</b><br><font style='font-size:10px'>top = CoMe mesh, bottom = table + ε, watertight</font>"
+        },
+        {
+          "id": "i_solid",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step15_view_side_closed_solid.png"
+        },
+        {
+          "id": "i_xs",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step15_cross_sections.png"
+        },
+        {
+          "id": "place",
+          "type": "node",
+          "parent": "1",
+          "label": "Place on table\nsame COLMAP frame, no vertex stitching",
+          "html": "<b>Place on table</b><br><font style='font-size:10px'>same COLMAP frame, no vertex stitching</font>"
+        },
+        {
+          "id": "i_place",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step15_view_above_scene.png"
+        },
+        {
+          "id": "out",
+          "type": "node",
+          "parent": "1",
+          "label": "table_static.obj (static)\nnapkin_dynamic.obj (dynamic)\nscene_table_napkin.ply",
+          "html": "table_static.obj (static)<br>napkin_dynamic.obj (dynamic)<br>scene_table_napkin.ply"
+        },
+        {
+          "id": "i_out",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step15_frame00127_scene_table_napkin.png"
+        },
+        {
+          "id": "e0",
+          "type": "edge",
+          "parent": "1",
+          "source": "rgb",
+          "target": "colmap"
+        },
+        {
+          "id": "e1",
+          "type": "edge",
+          "parent": "1",
+          "source": "colmap",
+          "target": "train"
+        },
+        {
+          "id": "e2",
+          "type": "edge",
+          "parent": "1",
+          "source": "train",
+          "target": "g3d"
+        },
+        {
+          "id": "e3",
+          "type": "edge",
+          "parent": "1",
+          "source": "g3d",
+          "target": "rchk"
+        },
+        {
+          "id": "e4",
+          "type": "edge",
+          "parent": "1",
+          "source": "hqsam",
+          "target": "m2d"
+        },
+        {
+          "id": "e5",
+          "type": "edge",
+          "parent": "1",
+          "source": "m2d",
+          "target": "sync"
+        },
+        {
+          "id": "e6",
+          "type": "edge",
+          "parent": "1",
+          "source": "sync",
+          "target": "nid"
+        },
+        {
+          "id": "e7",
+          "type": "edge",
+          "parent": "1",
+          "source": "nid",
+          "target": "distill"
+        },
+        {
+          "id": "e8",
+          "type": "edge",
+          "parent": "1",
+          "source": "distill",
+          "target": "g3did"
+        },
+        {
+          "id": "e9",
+          "type": "edge",
+          "parent": "1",
+          "label": "RGB",
+          "source": "rgb",
+          "target": "hqsam"
+        },
+        {
+          "id": "e10",
+          "type": "edge",
+          "parent": "1",
+          "label": "3DGS",
+          "source": "g3d",
+          "target": "sync"
+        },
+        {
+          "id": "e11",
+          "type": "edge",
+          "parent": "1",
+          "source": "remove",
+          "target": "vcam"
+        },
+        {
+          "id": "e12",
+          "type": "edge",
+          "parent": "1",
+          "source": "vcam",
+          "target": "samt"
+        },
+        {
+          "id": "e13",
+          "type": "edge",
+          "parent": "1",
+          "source": "samt",
+          "target": "lama"
+        },
+        {
+          "id": "e14",
+          "type": "edge",
+          "parent": "1",
+          "source": "lama",
+          "target": "initv"
+        },
+        {
+          "id": "e15",
+          "type": "edge",
+          "parent": "1",
+          "source": "initv",
+          "target": "inp3d"
+        },
+        {
+          "id": "e16",
+          "type": "edge",
+          "parent": "1",
+          "source": "inp3d",
+          "target": "final"
+        },
+        {
+          "id": "e17",
+          "type": "edge",
+          "parent": "1",
+          "label": "IDs",
+          "source": "g3did",
+          "target": "remove"
+        },
+        {
+          "id": "e18",
+          "type": "edge",
+          "parent": "1",
+          "label": "inpainted 3DGS",
+          "source": "final",
+          "target": "mesh"
+        },
+        {
+          "id": "e19",
+          "type": "edge",
+          "parent": "1",
+          "source": "mesh",
+          "target": "crop"
+        },
+        {
+          "id": "e20",
+          "type": "edge",
+          "parent": "1",
+          "source": "crop",
+          "target": "table"
+        },
+        {
+          "id": "e21",
+          "type": "edge",
+          "parent": "1",
+          "source": "objg",
+          "target": "close"
+        },
+        {
+          "id": "e22",
+          "type": "edge",
+          "parent": "1",
+          "source": "close",
+          "target": "omesh"
+        },
+        {
+          "id": "e23",
+          "type": "edge",
+          "parent": "1",
+          "source": "omesh",
+          "target": "solid"
+        },
+        {
+          "id": "e24",
+          "type": "edge",
+          "parent": "1",
+          "source": "solid",
+          "target": "place"
+        },
+        {
+          "id": "e25",
+          "type": "edge",
+          "parent": "1",
+          "source": "place",
+          "target": "out"
+        },
+        {
+          "id": "e26",
+          "type": "edge",
+          "parent": "1",
+          "label": "removed ID 44",
+          "source": "remove",
+          "target": "objg"
+        },
+        {
+          "id": "e27",
+          "type": "edge",
+          "parent": "1",
+          "label": "support",
+          "source": "table",
+          "target": "close"
+        },
+        {
+          "id": "e28",
+          "type": "edge",
+          "parent": "1",
+          "label": "table",
+          "source": "table",
+          "target": "place"
+        }
+      ]
+    }
+  ]
+}

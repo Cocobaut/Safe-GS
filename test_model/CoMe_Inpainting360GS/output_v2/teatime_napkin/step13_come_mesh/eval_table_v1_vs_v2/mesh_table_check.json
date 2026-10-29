@@ -1,0 +1,137 @@
+{
+  "napkin_extent": 0.8514,
+  "cell": 0.02128,
+  "tolerance_2pct": 0.017,
+  "footprint_cells": 1104,
+  "ring_cells": 1358,
+  "plane_n_d": [
+    -0.02702,
+    -0.855034,
+    -0.517867,
+    2.524101734161377
+  ],
+  "meshes": {
+    "v1": {
+      "file": "outputs/teatime_napkin/step13_come_mesh/mesh_come_v1_table.ply",
+      "n_vertices": 3322907,
+      "n_faces": 6650115,
+      "is_watertight": false,
+      "footprint": {
+        "n_vertices": 283669,
+        "height_p05_p50_p95": [
+          -0.006,
+          0.0057,
+          0.023
+        ],
+        "height_max": 0.0455,
+        "frac_above_2pct": 0.1172,
+        "frac_below_2pct": 0.0042,
+        "table_coverage": 0.9384
+      },
+      "ring_real_table": {
+        "n_vertices": 104900,
+        "height_p05_p50_p95": [
+          -0.0088,
+          0.0032,
+          0.2887
+        ],
+        "height_max": 0.3939,
+        "frac_above_2pct": 0.1774,
+        "frac_below_2pct": 0.0064,
+        "table_coverage": 0.9602
+      },
+      "floating_parts_in_footprint": {
+        "count": 9,
+        "faces": 274,
+        "largest": [
+          {
+            "n_faces": 82,
+            "min_height": 0.0176,
+            "max_height": 0.0216
+          },
+          {
+            "n_faces": 54,
+            "min_height": 0.038,
+            "max_height": 0.0455
+          },
+          {
+            "n_faces": 44,
+            "min_height": -0.0263,
+            "max_height": -0.0223
+          },
+          {
+            "n_faces": 41,
+            "min_height": -0.026,
+            "max_height": -0.0174
+          },
+          {
+            "n_faces": 30,
+            "min_height": 0.0178,
+            "max_height": 0.021
+          }
+        ]
+      }
+    },
+    "v2": {
+      "file": "output_v2/teatime_napkin/step13_come_mesh/mesh_come_v2_table.ply",
+      "n_vertices": 3435540,
+      "n_faces": 6875481,
+      "is_watertight": false,
+      "footprint": {
+        "n_vertices": 338282,
+        "height_p05_p50_p95": [
+          -0.0074,
+          0.0015,
+          0.0144
+        ],
+        "height_max": 0.0343,
+        "frac_above_2pct": 0.0117,
+        "frac_below_2pct": 0.0131,
+        "table_coverage": 0.9801
+      },
+      "ring_real_table": {
+        "n_vertices": 162799,
+        "height_p05_p50_p95": [
+          -0.0094,
+          0.0033,
+          0.242
+        ],
+        "height_max": 0.3939,
+        "frac_above_2pct": 0.1147,
+        "frac_below_2pct": 0.0147,
+        "table_coverage": 0.9551
+      },
+      "floating_parts_in_footprint": {
+        "count": 5,
+        "faces": 231,
+        "largest": [
+          {
+            "n_faces": 118,
+            "min_height": 0.023,
+            "max_height": 0.0272
+          },
+          {
+            "n_faces": 48,
+            "min_height": 0.0255,
+            "max_height": 0.0299
+          },
+          {
+            "n_faces": 44,
+            "min_height": 0.0293,
+            "max_height": 0.0343
+          },
+          {
+            "n_faces": 20,
+            "min_height": 0.0268,
+            "max_height": 0.0294
+          },
+          {
+            "n_faces": 1,
+            "min_height": -0.022,
+            "max_height": -0.0218
+          }
+        ]
+      }
+    }
+  }
+}

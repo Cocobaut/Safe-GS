@@ -1,0 +1,59 @@
+{
+  "object_extent": 0.8514,
+  "gap_eps": 0.00255,
+  "raw_mesh": {
+    "vertices": 124977,
+    "faces": 251686,
+    "components": 6,
+    "kept": 1,
+    "faces_removed": 410,
+    "vertices_below_support": 0.0888,
+    "lowest_below_support": -0.1459
+  },
+  "object": {
+    "cells": 25160,
+    "cell": 0.00426,
+    "vertices": 51136,
+    "faces": 102268,
+    "edges": {
+      "boundary": 0,
+      "manifold": 153402,
+      "non_manifold": 0
+    },
+    "watertight": true,
+    "volume": 0.040226,
+    "height_max_above_support": 0.2599,
+    "collision_faces": 102268,
+    "collision_decimated_watertight": false,
+    "center_of_mass": [
+      1.14015,
+      2.26859,
+      0.93855
+    ],
+    "com_inside_footprint": true,
+    "colour_rgb": [
+      0.902999997138977,
+      0.8830000162124634,
+      0.8550000190734863
+    ]
+  },
+  "table": {
+    "input_faces": 6875481,
+    "components": 416,
+    "removed_components": 415,
+    "removed_faces": 14795,
+    "faces": 299999
+  },
+  "contact": {
+    "bottom_layer_vertices": 26196,
+    "with_table_below": 0.9697,
+    "gap_p05_p50_p95": [
+      0.00093,
+      0.00259,
+      0.00517
+    ],
+    "penetrating_vertices": 298,
+    "max_penetration": 0.01099
+  },
+  "check_ok": false
+}

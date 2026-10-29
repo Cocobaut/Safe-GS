@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "train": {
+      "gt": 154,
+      "removed": 154,
+      "inpainted": 154
+    },
+    "test": {
+      "gt": 23,
+      "removed": 23,
+      "inpainted": 23
+    }
+  },
+  "videos": {
+    "video_1_removed.mp4": true,
+    "video_2_inpainted.mp4": true
+  },
+  "from_step11": "step11_inpaint_3dgs_come_loss",
+  "note": "LERF teatime has no ground truth without the napkin: no metrics, visual check only"
+}

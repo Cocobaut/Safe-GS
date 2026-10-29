@@ -1,2 +1,0 @@
-class NanError(Exception):
-    pass

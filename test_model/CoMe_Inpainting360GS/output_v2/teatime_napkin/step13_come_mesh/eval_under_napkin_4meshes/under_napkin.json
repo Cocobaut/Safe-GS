@@ -1,0 +1,134 @@
+{
+  "napkin_extent": 0.8514,
+  "cell": 0.0213,
+  "tol": 0.017,
+  "footprint_cells": 1101,
+  "meshes": {
+    "InFusion_GOF": {
+      "file": "F:/Safe-GS/test_model/CoMe_Infusion/Step_6_Mesh_GOF/mesh_no_napkin_GOF_table.ply",
+      "vertices_in_footprint_column": 110016,
+      "coverage_table_layer_within_tol": 0.7802,
+      "empty_cells": 0.0,
+      "dent_cells_below_tol": 0.2198,
+      "raised_cells_above_tol": 0.0,
+      "table_layer_height_p05_p50_p95": [
+        -0.024,
+        -0.0095,
+        0.01
+      ],
+      "table_layer_roughness_std_covered": 0.00871,
+      "band_normals_mean_abs_dot": 0.9693,
+      "band_normals_tilted_gt_20deg": 0.1295,
+      "cells_with_surface_above_layer_gt_tol": 0.0,
+      "fragments_off_table": {
+        "count": 1,
+        "faces": 1,
+        "largest": [
+          {
+            "faces": 1,
+            "height_min": -0.0234,
+            "height_max": -0.0223
+          }
+        ]
+      }
+    },
+    "InFusion_CoMe": {
+      "file": "F:/Safe-GS/test_model/CoMe_Infusion/Step_6_Mesh_GOF/mesh_no_napkin_CoMe_table.ply",
+      "vertices_in_footprint_column": 102931,
+      "coverage_table_layer_within_tol": 0.7838,
+      "empty_cells": 0.0,
+      "dent_cells_below_tol": 0.2162,
+      "raised_cells_above_tol": 0.0,
+      "table_layer_height_p05_p50_p95": [
+        -0.0235,
+        -0.0093,
+        0.0105
+      ],
+      "table_layer_roughness_std_covered": 0.00889,
+      "band_normals_mean_abs_dot": 0.9712,
+      "band_normals_tilted_gt_20deg": 0.1157,
+      "cells_with_surface_above_layer_gt_tol": 0.0,
+      "fragments_off_table": {
+        "count": 0,
+        "faces": 0,
+        "largest": []
+      }
+    },
+    "Inp360_CoMe_v1": {
+      "file": "outputs/teatime_napkin/step13_come_mesh/mesh_come_v1_table.ply",
+      "vertices_in_footprint_column": 283386,
+      "coverage_table_layer_within_tol": 0.9055,
+      "empty_cells": 0.0,
+      "dent_cells_below_tol": 0.0454,
+      "raised_cells_above_tol": 0.049,
+      "table_layer_height_p05_p50_p95": [
+        -0.0163,
+        -0.0001,
+        0.017
+      ],
+      "table_layer_roughness_std_covered": 0.00696,
+      "band_normals_mean_abs_dot": 0.879,
+      "band_normals_tilted_gt_20deg": 0.4433,
+      "cells_with_surface_above_layer_gt_tol": 0.0836,
+      "fragments_off_table": {
+        "count": 6,
+        "faces": 161,
+        "largest": [
+          {
+            "faces": 54,
+            "height_min": 0.0359,
+            "height_max": 0.0433
+          },
+          {
+            "faces": 44,
+            "height_min": -0.0291,
+            "height_max": -0.025
+          },
+          {
+            "faces": 41,
+            "height_min": -0.0287,
+            "height_max": -0.0201
+          }
+        ]
+      }
+    },
+    "Inp360_CoMe_v2": {
+      "file": "output_v2/teatime_napkin/step13_come_mesh/mesh_come_v2_table.ply",
+      "vertices_in_footprint_column": 337805,
+      "coverage_table_layer_within_tol": 0.9382,
+      "empty_cells": 0.0009,
+      "dent_cells_below_tol": 0.0609,
+      "raised_cells_above_tol": 0.0,
+      "table_layer_height_p05_p50_p95": [
+        -0.0191,
+        -0.0053,
+        0.0061
+      ],
+      "table_layer_roughness_std_covered": 0.00552,
+      "band_normals_mean_abs_dot": 0.9147,
+      "band_normals_tilted_gt_20deg": 0.3442,
+      "cells_with_surface_above_layer_gt_tol": 0.0345,
+      "fragments_off_table": {
+        "count": 6,
+        "faces": 232,
+        "largest": [
+          {
+            "faces": 118,
+            "height_min": 0.0213,
+            "height_max": 0.0255
+          },
+          {
+            "faces": 48,
+            "height_min": 0.0239,
+            "height_max": 0.0282
+          },
+          {
+            "faces": 44,
+            "height_min": 0.0276,
+            "height_max": 0.0326
+          }
+        ]
+      }
+    }
+  }
+}

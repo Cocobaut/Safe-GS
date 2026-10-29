@@ -1,0 +1,40 @@
+{
+  "n_gaussians": 1896824,
+  "n_properties": 80,
+  "has_confidence": true,
+  "has_filter_3D": true,
+  "virtual_views_used": 30,
+  "virtual_views_skipped": [],
+  "object_center_world": "1.117341,2.230478,0.970152",
+  "init_view": "00020",
+  "loss_first": {
+    "iteration": 0,
+    "view": "00027",
+    "loss": 0.03316400572657585,
+    "loss_inpaint360": 0.02014041505753994,
+    "n_points": 1848297,
+    "loss_come": 0.013023589737713337,
+    "come_depth_normal": 0.14465650916099548,
+    "come_distortion": 5.096418135508429e-06,
+    "come_smoothness": 0.09654039144515991,
+    "come_opacity_field": 0.03422917053103447,
+    "come_extent": 0.0017373360460624099,
+    "come_variance": 0.007388249505311251,
+    "come_normal_variance": 0.06218870356678963
+  },
+  "loss_last": {
+    "iteration": 4950,
+    "view": "00021",
+    "loss": 0.024347946047782898,
+    "loss_inpaint360": 0.012870372273027897,
+    "n_points": 1896824,
+    "loss_come": 0.011477572843432426,
+    "come_depth_normal": 0.136786550283432,
+    "come_distortion": 2.499973334124661e-06,
+    "come_smoothness": 0.09664876759052277,
+    "come_opacity_field": 0.03629216179251671,
+    "come_extent": 0.0016225747531279922,
+    "come_variance": 0.00568985054269433,
+    "come_normal_variance": 0.053881727159023285
+  }
+}

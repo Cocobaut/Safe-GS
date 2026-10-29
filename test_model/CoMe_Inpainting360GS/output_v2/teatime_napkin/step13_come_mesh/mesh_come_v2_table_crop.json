@@ -1,0 +1,16 @@
+{
+  "source": "F:\\Safe-GS\\test_model\\CoMe_Inpainting360GS\\output_v2\\teatime_napkin\\step13_come_mesh\\mesh_come_v2_iter5000.ply",
+  "prism": "F:\\Safe-GS\\test_model\\CoMe_Infusion\\Step_6_Mesh_GOF\\mesh_gof_table_crop.json",
+  "plane_normal": [
+    -0.028365024524206313,
+    -0.8555208920531081,
+    -0.5169907432869524
+  ],
+  "plane_d": 2.523738429139343,
+  "height_range": [
+    -0.03,
+    0.8439804418200664
+  ],
+  "vertices": 3435540,
+  "faces": 6875481
+}

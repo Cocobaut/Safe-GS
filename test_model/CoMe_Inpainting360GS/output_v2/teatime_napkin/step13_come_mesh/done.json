@@ -1,0 +1,9 @@
+{
+  "variant": "v2",
+  "source_ply": "/vol/come360/export/teatime_napkin_v2/step11_inpaint_3dgs_come_loss/point_cloud_inpainted_iter5000.ply",
+  "mesh": "mesh_faster_binary_search_7.ply",
+  "n_vertices": 16381340,
+  "n_faces": 32962676,
+  "minutes": 5.4,
+  "command": "extract_mesh_tets.py -m <model> -s /vol/come360/data/teatime --iteration 5000 (CoMe defaults)"
+}

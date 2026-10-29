@@ -1,0 +1,93 @@
+{
+  "object_extent": 0.8514,
+  "gap_eps": 0.00255,
+  "table": {
+    "input_faces": 6875481,
+    "components": 416,
+    "removed_components": 415,
+    "removed_faces": 14795,
+    "faces": 299999
+  },
+  "support": {
+    "source": "collision table (decimated), rays along -n, 3x3 max; per cell: max over the cell",
+    "cell": 0.00213,
+    "rays_on_table": 0.9539
+  },
+  "raw_mesh": {
+    "vertices": 124977,
+    "faces": 251686,
+    "components": 6,
+    "kept": 1,
+    "faces_removed": 410,
+    "vertices_below_support": 0.0906,
+    "lowest_below_support": -0.146
+  },
+  "object": {
+    "cell": 0.00426,
+    "cells": 25156,
+    "vertices": 51126,
+    "faces": 102248,
+    "edges": {
+      "boundary": 0,
+      "manifold": 153372,
+      "non_manifold": 0
+    },
+    "watertight": true,
+    "volume": 0.039311,
+    "height_max_above_support": 0.2589,
+    "center_of_mass": [
+      1.13939,
+      2.26825,
+      0.93711
+    ],
+    "com_inside_footprint": true,
+    "colour_rgb": [
+      0.902999997138977,
+      0.8830000162124634,
+      0.8550000190734863
+    ]
+  },
+  "collision_object": {
+    "cell": 0.00851,
+    "cells": 6290,
+    "vertices": 12988,
+    "faces": 25972,
+    "edges": {
+      "boundary": 0,
+      "manifold": 38958,
+      "non_manifold": 0
+    },
+    "watertight": true,
+    "volume": 0.038922,
+    "height_max_above_support": 0.2584,
+    "center_of_mass": [
+      1.13903,
+      2.26806,
+      0.93671
+    ],
+    "com_inside_footprint": true
+  },
+  "contact_detail": {
+    "bottom_layer_vertices": 25031,
+    "with_table_below": 0.9978,
+    "gap_p05_p50_p95": [
+      0.00292,
+      0.00417,
+      0.00721
+    ],
+    "penetrating_vertices": 0,
+    "max_penetration": 0.0
+  },
+  "contact_collision": {
+    "bottom_layer_vertices": 5967,
+    "with_table_below": 0.9968,
+    "gap_p05_p50_p95": [
+      0.00312,
+      0.00492,
+      0.00789
+    ],
+    "penetrating_vertices": 0,
+    "max_penetration": 0.0
+  },
+  "check_ok": true
+}

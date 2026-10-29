@@ -1,0 +1,35 @@
+{
+  "units": "COLMAP units of the CoMe reconstruction (metric scale unknown)",
+  "gravity_direction": [
+    0.028365,
+    0.855521,
+    0.516991
+  ],
+  "table_plane_n_d": [
+    -0.028365,
+    -0.855521,
+    -0.516991,
+    2.523738429139343
+  ],
+  "contact_gap": 0.00255,
+  "bodies": {
+    "table": {
+      "file": "collision/table_static.obj",
+      "type": "static",
+      "note": "open surface"
+    },
+    "napkin": {
+      "file": "collision/napkin_dynamic.obj",
+      "type": "dynamic",
+      "watertight": true,
+      "convex_hull": "collision/napkin_convex_hull.obj",
+      "center_of_mass": [
+        1.13903,
+        2.26806,
+        0.93671
+      ],
+      "volume": 0.038922
+    }
+  },
+  "note": "napkin = rigid solid: top from the CoMe mesh of the step-14 Gaussians, bottom = inpainted table + gap (folds filled); convex decomposition (CoACD/V-HACD) not run: convex hull provided"
+}
