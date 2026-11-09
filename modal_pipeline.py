@@ -386,6 +386,93 @@ def _s10_cpu(cfg: dict):
     vol.commit()
 
 
+@app.function(image=pipe_image, timeout=3600, **{**GPU_KW, "gpu": ["L4", "L40S"]})   # L40S cùng sm_89 với L4
+def _s10_ghost(cfg: dict):
+    """Đo 'ma' còn lại trong khoảng trống vật của nền S4b (pipeline/s10_ghost.py), để so với ObjectGS cùng định nghĩa."""
+    vol.reload()
+    _run_script(cfg, "S10", "s10_ghost.py",
+                f"--s3 {_sdir(cfg, 'S3')} --s4b {_sdir(cfg, 'S4b')} --labels {Path(VOL) / cfg['S1_masks']['labels_dir']}")
+    return json.loads((_sdir(cfg, "S10") / "ghost.json").read_text())
+
+
+S4C_VER = "v2"     # đổi khi sửa pipeline/s4c_decouple.py hoặc s10_ghost.py (Modal bỏ qua thư mục gắn vào nếu định nghĩa hàm không đổi)
+
+
+@app.function(image=pipe_image, timeout=4 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s4c(cfg: dict, tag: str, iters: int = 8000, lam_sil: float = 0.1, lam_leak: float = 0.5, assign_ratio: float = 0.5):
+    """Thử nghiệm S4c (pipeline/s4c_decouple.py): tinh chỉnh CoMe 2 nhóm với loss alpha theo nhóm, rồi đo ma bằng s10_ghost.py.
+    iters = 0: không tinh chỉnh, chỉ gán nhãn SAM 3 và đo (đối chứng v1 với nhãn SAM 3)."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S4c" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    cfgp = _sdir(cfg, "S10") / "config_used.json"
+    labels = Path(VOL) / cfg["scene"] / "sam3_masks" / "labels"
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s4c_{tag}.log"
+    env = f"PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline"
+    common = f"-m {local} -s {data} --iteration {cfg['S2_come']['iterations']} --cfg {cfgp}"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"{env}/s4c_decouple.py {common} --out {out} --labels {labels} "
+                          f"--support {_sdir(cfg, 'S3') / 'support.json'} --iters {iters} --lam_sil {lam_sil} "
+                          f"--lam_leak {lam_leak} --assign_ratio {assign_ratio}", "/opt/CoMe", log)
+        if not (out / "ghost" / "ghost.json").exists():
+            mc._run_train(f"{env}/s10_ghost.py {common} --out {out / 'ghost'} --s3 {out / 'S3like'} "
+                          f"--s4b {out / 'S4like'} --labels {labels} --occluder_ids 20,30", "/opt/CoMe", log)
+    vol.commit()
+    return {"tag": tag, "metrics": json.loads((out / "metrics.json").read_text()),
+            "ghost": json.loads((out / "ghost" / "ghost.json").read_text())}
+
+
+@app.function(image=pipe_image, timeout=2 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s4d(cfg: dict, tag: str, src_tag: str = "ctrl", cut_dilate: int = 2, reach: float = 2.0, low_cm: float = 3.0,
+         fill_dilate: int = 4, protect: int = 1, ft_iters: int = 0, lr_scale: float = 0.5, ft_mode: str = "inpaint",
+         freeze_region: int = 0, freeze_dilate: int = 6, fill_grid: float = 0.01):
+    """Thử nghiệm S4d (pipeline/s4d_cutfill.py): cắt Gaussian nền trong vết chân + plane_fill, đo ma bằng s10_ghost.py."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    src = _root(cfg) / "S4c" / src_tag
+    out = _root(cfg) / "S4d" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    cfgp = _sdir(cfg, "S10") / "config_used.json"
+    labels = Path(VOL) / cfg["scene"] / "sam3_masks" / "labels"
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s4d_{tag}.log"
+    env = "PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline"
+    common = f"-m {local} -s {data} --iteration {cfg['S2_come']['iterations']} --cfg {cfgp}"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"{env}/s4d_cutfill.py {common} --out {out} --src {src} --labels {labels} "
+                          f"--cut_dilate {cut_dilate} --reach {reach} --low_cm {low_cm} --fill_dilate {fill_dilate} "
+                          f"--protect {protect} --ft_iters {ft_iters} --lr_scale {lr_scale} --ft_mode {ft_mode} --freeze_region {freeze_region} --freeze_dilate {freeze_dilate} --fill_grid {fill_grid} "
+                          f"--inpainted {_sdir(cfg, 'S4a') / 'inpainted'}",
+                          "/opt/CoMe", log)
+        if not (out / "ghost" / "ghost.json").exists():
+            mc._run_train(f"{env}/s10_ghost.py {common} --out {out / 'ghost'} --s3 {out / 'S3like'} "
+                          f"--s4b {out / 'S4like'} --labels {labels} --occluder_ids 20,30", "/opt/CoMe", log)
+    vol.commit()
+    return {"tag": tag, "metrics": json.loads((out / "metrics.json").read_text()),
+            "ghost": json.loads((out / "ghost" / "ghost.json").read_text())}
+
+
+@app.function(image=light_img, volumes={VOL: vol}, timeout=3600)
+def _mk_v2(cfg: dict, s4d_tag: str, new_run: str = "v2"):
+    """Tạo run mới = bản sao run hiện tại, thay S4b/background_finetuned.ply bằng nền S4d/<tag>; xoá S9, S10 để chạy lại."""
+    vol.reload()
+    src, dst = _root(cfg), Path(VOL) / cfg["scene"] / "pipeline" / new_run
+    dst.mkdir(parents=True, exist_ok=True)
+    for sub in sorted(p.name for p in src.iterdir() if p.is_dir() and p.name not in ("S4c", "S4d", "S9_render", "S10_eval")):
+        if not (dst / sub).exists():
+            shutil.copytree(src / sub, dst / sub)
+    b = dst / DIRNAME["S4b"]
+    shutil.copy2(Path(VOL) / cfg["scene"] / "pipeline" / cfg["run_name"] / "S4d" / s4d_tag / "S4like" / "background_finetuned.ply",
+                 b / "background_finetuned.ply")
+    (b / "NOTE.txt").write_text(f"background_finetuned.ply thay bang S4d/{s4d_tag} cua run {cfg['run_name']}" + chr(10))
+    for st in ("S9", "S10"):
+        shutil.rmtree(dst / DIRNAME[st], ignore_errors=True)
+    vol.commit()
+    return sorted(p.name for p in dst.iterdir())
+
+
 @app.function(image=pipe_image, timeout=3 * 3600, **GPU_KW)
 def s10(cfg: dict, force: bool = False):
     """Đo lường mọi stage (pipeline/s10_*.py). Cần LERF-Mask teatime trên Volume tại S10_eval.lerf_dir."""

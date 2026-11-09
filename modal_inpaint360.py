@@ -40,6 +40,7 @@ LOG = Path(VOL) / "teatime" / "logs"
 CROPFORMER = ("https://huggingface.co/datasets/qqlu1992/Adobe_EntitySeg/resolve/main/CropFormer_model/"
               "Entity_Segmentation/CropFormer_hornet_3x/CropFormer_hornet_3x_03823a.pth")
 BIG_LAMA = "https://huggingface.co/smartywu/big-lama/resolve/main/big-lama.zip"
+LAMA_COMMIT = "786f5936b27fb3dacd2b1ad799e4de968ea697e7"   # advimman/lama HEAD ngày 2026-10-23
 IGNORE = [".git", "media", "**/__pycache__"]
 
 main_img = (
@@ -87,6 +88,13 @@ lama_img = (
         "conda run -n lama pip install pytorch-lightning==1.2.9",
         f"cd {R}/LaMa && curl -sLJO {BIG_LAMA} && unzip -q big-lama.zip && rm big-lama.zip",
     )
+    # repo Inpaint360GS thiếu LaMa/saicinpainting/training/data (bị .gitignore "data/" loại khi commit):
+    # lấy từ LaMa gốc, cp -n = chỉ thêm file thiếu, không ghi đè file tác giả đã sửa
+    .apt_install("git")
+    .run_commands(f"git clone -q https://github.com/advimman/lama.git /tmp/lama && git -C /tmp/lama checkout -q {LAMA_COMMIT} "
+                  f"&& cp -rn /tmp/lama/saicinpainting/. {R}/LaMa/saicinpainting/ "
+                  f"&& cp -rn /tmp/lama/configs/. {R}/LaMa/configs/ && rm -rf /tmp/lama "
+                  f"&& ls {R}/LaMa/saicinpainting/training/data")
     .env({"PYTHONUNBUFFERED": "1"})
     .add_local_python_source("modal_come")
 )
@@ -150,7 +158,8 @@ def _sh(step, cmd, cwd=R, force=False):
                 print(f"[commit] {e}", flush=True)
     th = threading.Thread(target=loop, daemon=True); th.start()
     try:
-        mc._run_train(f"set -e; {cmd}", cwd, LOG / f"i360_{step}.log")
+        # tools/*.py import render.py ở gốc repo (máy tác giả: PYTHONPATH=$(pwd) export từ run_seg.sh)
+        mc._run_train(f"set -e; export PYTHONPATH={R}:$PYTHONPATH; {cmd}", cwd, LOG / f"i360_{step}.log")
     finally:
         stop.set(); th.join(timeout=10); vol.commit()
     _mark(step, {"cmd": cmd})
@@ -180,7 +189,8 @@ def _seg():
         _sh("seg1_3dgs", f"python gaussian_splatting/train.py -s {S} -m {M}/3dgs_output --init_mode sparse --eval "
                          f"--resolution {RES} --checkpoint_iterations {' '.join(str(i) for i in range(3000, 30000, 3000))} "
                          f"{resume}")
-    pp = f"export PYTHONPATH={R}:{R}/seg/detectron2:$PYTHONPATH; "
+    # CropFormer import "mask2former" dạng gói cấp cao nhất (demo của nó tự thêm thư mục CropFormer vào sys.path)
+    pp = f"export PYTHONPATH={R}:{R}/seg/detectron2:{R}/seg/detectron2/detectron2/projects/CropFormer:$PYTHONPATH; "
     _sh("seg2_mask", pp + f"python seg/raw_mask_sam.py --dataset_path data/{DS}/ --scene_name {SCENE} "
                           f"--image_folder images_{RES} --method hqsam")
     _sh("seg3_assoc", pp + f"python seg/mask_associate.py --source_path {S} --model_path {M}/3dgs_output "
@@ -248,6 +258,55 @@ def _lama():
     _sh("in2_lama", f"{run} python bin/predict_color.py --data_name 360_{SCENE}_virtual && "
                     f"{run} python bin/predict_depth.py --data_name 360_{SCENE}_virtual", cwd=f"{R}/LaMa")
     return "lama"
+
+
+@app.function(image=modal.Image.debian_slim().add_local_python_source("modal_come"), timeout=12 * 3600)
+def _inpaint_all():
+    """run_inpaint.sh trọn bộ trên server (spawn được, không phụ thuộc máy local)."""
+    return [_inpaint_main.remote("a"), _lama.remote(), _inpaint_main.remote("b")]
+
+
+@app.function(image=modal.Image.debian_slim().pip_install("numpy", "pillow").add_local_python_source("modal_come"),
+              volumes={VOL: vol}, timeout=1800)
+def _match_ids(objects: dict, labels_dir: str = "teatime/sam2_masks/labels"):
+    """ID của Inpaint360GS (associated_hqsam) ứng với từng vật của mình: theo số pixel trùng với mask SAM2 của team."""
+    import numpy as np
+    from PIL import Image
+    vol.reload()
+    a_dir = ROOT / "data" / DS / SCENE / "associated_hqsam"
+    files = sorted(a_dir.glob("*.png"))
+    cnt = {k: {} for k in objects}
+    area = {}
+    for f in files:
+        lp = Path(VOL) / labels_dir / f.name
+        if not lp.exists():
+            continue
+        a = np.array(Image.open(f)); b = np.array(Image.open(lp))
+        if a.shape != b.shape:
+            a = np.array(Image.open(f).resize(b.shape[::-1], Image.NEAREST))
+        ids, c = np.unique(a, return_counts=True)
+        for i, n in zip(ids.tolist(), c.tolist()):
+            area[i] = area.get(i, 0) + n
+        for k, ours in objects.items():
+            m = np.isin(b, ours)
+            if m.any():
+                ids, c = np.unique(a[m], return_counts=True)
+                for i, n in zip(ids.tolist(), c.tolist()):
+                    cnt[k][i] = cnt[k].get(i, 0) + n
+    out = {}
+    for k, d in cnt.items():
+        tot = sum(d.values()) or 1
+        # precision: tỉ lệ pixel của ID đó nằm trong vật của mình; recall: phần vật được ID đó phủ
+        out[k] = sorted([{"id": i, "recall": round(n / tot, 3), "precision": round(n / area[i], 3)}
+                         for i, n in d.items() if i != 0], key=lambda x: -x["recall"])[:5]
+    return {"files": len(files), "match": out}
+
+
+@app.local_entrypoint()
+def match():
+    cfg = json.loads((Path(__file__).resolve().parent / "configs/pipeline/teatime_v1.json").read_text(encoding="utf-8"))
+    objs = dict(cfg["S3_label"]["objects"])
+    print(json.dumps(_match_ids.remote(objs), indent=1, ensure_ascii=False))
 
 
 @app.function(image=modal.Image.debian_slim().add_local_python_source("modal_come"), volumes={VOL: vol}, timeout=300)

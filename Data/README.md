@@ -27,7 +27,18 @@ Data/
 │       ├── cfg_args, config.json, mesh_args, rem_args, cameras.json   cấu hình lúc train (cần cho render/mesh)
 │       ├── tensorboard/
 │       ├── renders/{train,test}/ ảnh render + ảnh ghép so với ảnh gốc
-│   ├── pipeline/v1/          kết quả pipeline end-to-end S0..S6 (modal_come pipeline, xem pipeline/README.md)
+│   ├── sam3_masks/           mask SAM 3 theo prompt chữ (modal_sam3.py), 177 frame COLMAP: labels/ (17 ID), legend.json
+│   │                         (ID -> prompt), preview/, quality_v3/ (overlay.mp4, bảng ổn định, timeline), labels_v1/
+│   │                         (bản đầu 26 ID), probe/ (thử prompt: cand_*.jpg, chấm LERF-Mask: lerf_eval.json)
+│   ├── mask_hull/            vùng 3D từng vật chỉ từ mask SAM2 + camera (tools/mask_hull.py): hull_<vật>.ply, stats.json, overlay.jpg
+│   ├── mask_hull_sam3/       như trên nhưng từ mask SAM 3 (hull_objects.ply, hull_consistency.ply xem bằng extension PLY)
+│   ├── i360gs/               Inpaint360GS chạy nguyên pipeline tác giả (modal_inpaint360.py): ids/ (ảnh đánh số ID), result/
+│   │                         (video full_scene / removed / inpainted + compare_rgb_00060.jpg)
+│   ├── objectgs/             ObjectGS (modal_objectgs.py): eval_lerf/ (LERF-Mask), eval_removal_sam3*/ (xoá vật: removal_eval.json
+│   │                         + ảnh trước|sau; hậu tố _hull, _gauss03, _gaussall, _foot, _probe là các cách cắt / chẩn đoán)
+│   ├── benchmarks/ (ngoài teatime/)  LERF-Mask teatime của Gaussian Grouping: lerf_mask_dl/x/teatime (ảnh, COLMAP, mask GT)
+│   ├── pipeline/v1/          kết quả pipeline end-to-end S0..S10 (modal_pipeline.py, xem pipeline/README.md); S10_eval/eval_report.md
+│                             là bảng đo lường toàn pipeline
 │       ├── edit/delete_all_object/ xoá mọi ID mask (label > 0), cùng cấu trúc với remove_id22
 │       ├── edit/delete_all_object_v2_sdf/ + dọn bên trong SDF và floater < 0.5 quanh vật (có diag.npz trên Volume)
 │       ├── edit/delete_all_object_v3_freevote/ + vote bỏ qua che trong bán kính 0.2 quanh vật (bản tốt nhất hiện tại)
