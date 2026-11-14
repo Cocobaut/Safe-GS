@@ -1,5 +1,6 @@
 {
   "version": "32.6.1",
+  "source_run": "outputs/LERF/ours/teatime_napkin",
   "pages": [
     {
       "id": "pipeline",
@@ -13,7 +14,7 @@
           "id": "s1",
           "type": "node",
           "parent": "1",
-          "label": "Stage 1 – Data & CoMe 3DGS (reused from CoMe_Infusion, step 0–4)"
+          "label": "Stage 1 – Data & CoMe 3DGS (step 0–4)"
         },
         {
           "id": "rgb",
@@ -32,22 +33,22 @@
           "id": "colmap",
           "type": "node",
           "parent": "1",
-          "label": "SfM\nCOLMAP poses (step 0)",
-          "html": "<b>SfM</b><br><font style='font-size:10px'>COLMAP poses (step 0)</font>"
+          "label": "SfM\nCOLMAP poses, PINHOLE (step 0)",
+          "html": "<b>SfM</b><br><font style='font-size:10px'>COLMAP poses, PINHOLE (step 0)</font>"
         },
         {
           "id": "train",
           "type": "node",
           "parent": "1",
-          "label": "3DGS Training\nCoMe: 3DGS + CoMe losses, 30k it (step 1)",
-          "html": "<b>3DGS Training</b><br><font style='font-size:10px'>CoMe: 3DGS + CoMe losses, 30k it (step 1)</font>"
+          "label": "3DGS Training\nCoMe: 3DGS + CoMe losses, 30k it, 1.80M Gaussians (step 1)",
+          "html": "<b>3DGS Training</b><br><font style='font-size:10px'>CoMe: 3DGS + CoMe losses, 30k it, 1.80M Gaussians (step 1)</font>"
         },
         {
           "id": "g3d",
           "type": "node",
           "parent": "1",
-          "label": "Scene 3DGS\n(render, step 2)",
-          "html": "Scene 3DGS<br>(render, step 2)"
+          "label": "Scene 3DGS\n(CoMe render, step 2)",
+          "html": "Scene 3DGS<br>(CoMe render, step 2)"
         },
         {
           "id": "i_g3d",
@@ -59,8 +60,8 @@
           "id": "rchk",
           "type": "node",
           "parent": "1",
-          "label": "Renderer check\nInpaint360GS code + CoMe rasterizer, PSNR 44 dB (step 4)",
-          "html": "<b>Renderer check</b><br><font style='font-size:10px'>Inpaint360GS code + CoMe rasterizer, PSNR 44 dB (step 4)</font>"
+          "label": "Renderer check\nInpaint360GS code + CoMe rasterizer: identical to CoMe render; PSNR vs GT 25.5 / 23.3 dB train / test (step 4)",
+          "html": "<b>Renderer check</b><br><font style='font-size:10px'>Inpaint360GS code + CoMe rasterizer: identical to CoMe render; PSNR vs GT 25.5 / 23.3 dB train / test (step 4)</font>"
         },
         {
           "id": "i_rchk",
@@ -78,8 +79,8 @@
           "id": "hqsam",
           "type": "node",
           "parent": "1",
-          "label": "2D Segmentation\nHQ-SAM / CropFormer (step 5)",
-          "html": "<b>2D Segmentation</b><br><font style='font-size:10px'>HQ-SAM / CropFormer (step 5)</font>"
+          "label": "2D Segmentation\nHQ-SAM, 36 IDs/frame (step 5)",
+          "html": "<b>2D Segmentation</b><br><font style='font-size:10px'>HQ-SAM, 36 IDs/frame (step 5)</font>"
         },
         {
           "id": "i_hqsam",
@@ -117,15 +118,15 @@
           "id": "nid",
           "type": "node",
           "parent": "1",
-          "label": "Napkin ID = 44\n(auto: IoU 0.73 with ref. mask)",
-          "html": "Napkin ID = 44<br>(auto: IoU 0.73 with ref. mask)"
+          "label": "Object ID = 44\n(auto: IoU 0.73 with ref. mask)",
+          "html": "Object ID = 44<br>(auto: IoU 0.73 with ref. mask)"
         },
         {
           "id": "distill",
           "type": "node",
           "parent": "1",
-          "label": "ID Distillation\nID feature per Gaussian + classifier (step 7)",
-          "html": "<b>ID Distillation</b><br><font style='font-size:10px'>ID feature per Gaussian + classifier (step 7)</font>"
+          "label": "ID Distillation\nID feature per Gaussian + classifier, render IoU 0.92 (step 7)",
+          "html": "<b>ID Distillation</b><br><font style='font-size:10px'>ID feature per Gaussian + classifier, render IoU 0.92 (step 7)</font>"
         },
         {
           "id": "i_distill",
@@ -144,7 +145,7 @@
           "id": "s3",
           "type": "node",
           "parent": "1",
-          "label": "Stage 3 – Removal & inpainting (Inpaint360GS v2 + CoMe loss, step 8–12)"
+          "label": "Stage 3 – Removal & inpainting (Inpaint360GS + CoMe loss, step 8–12)"
         },
         {
           "id": "remove",
@@ -157,8 +158,8 @@
           "id": "vcam",
           "type": "node",
           "parent": "1",
-          "label": "Virtual cameras\n30 views around object, rotation fixed (step 8)",
-          "html": "<b>Virtual cameras</b><br><font style='font-size:10px'>30 views around object, rotation fixed (step 8)</font>"
+          "label": "Virtual cameras\n30 views around the object (step 8)",
+          "html": "<b>Virtual cameras</b><br><font style='font-size:10px'>30 views around the object (step 8)</font>"
         },
         {
           "id": "i_vorig",
@@ -176,8 +177,8 @@
           "id": "samt",
           "type": "node",
           "parent": "1",
-          "label": "Inpaint masks\nSAM-Track on removed views (step 9)",
-          "html": "<b>Inpaint masks</b><br><font style='font-size:10px'>SAM-Track on removed views (step 9)</font>"
+          "label": "Inpaint masks\nSAM-Track on removed views, 3.7–4.2 % (step 9)",
+          "html": "<b>Inpaint masks</b><br><font style='font-size:10px'>SAM-Track on removed views, 3.7–4.2 % (step 9)</font>"
         },
         {
           "id": "i_samt",
@@ -189,8 +190,8 @@
           "id": "lama",
           "type": "node",
           "parent": "1",
-          "label": "2D Inpainting (v2)\nLaMa colour + depth, mask dilated 20 px (step 10)",
-          "html": "<b>2D Inpainting (v2)</b><br><font style='font-size:10px'>LaMa colour + depth, mask dilated 20 px (step 10)</font>"
+          "label": "2D Inpainting\nLaMa colour + depth, dilated mask (step 10)",
+          "html": "<b>2D Inpainting</b><br><font style='font-size:10px'>LaMa colour + depth, dilated mask (step 10)</font>"
         },
         {
           "id": "i_mdil",
@@ -214,22 +215,22 @@
           "id": "initv",
           "type": "node",
           "parent": "1",
-          "label": "Init view selection (v2)\ncleanest LaMa fill: view 00020",
-          "html": "<b>Init view selection (v2)</b><br><font style='font-size:10px'>cleanest LaMa fill: view 00020</font>"
+          "label": "Init view selection\ncleanest LaMa fill: view 00020 (step 11)",
+          "html": "<b>Init view selection</b><br><font style='font-size:10px'>cleanest LaMa fill: view 00020 (step 11)</font>"
         },
         {
           "id": "inp3d",
           "type": "node",
           "parent": "1",
-          "label": "3DGS Inpainting\nInpaint360GS loss + CoMe loss, 5000 it (step 11)",
-          "html": "<b>3DGS Inpainting</b><br><font style='font-size:10px'>Inpaint360GS loss + CoMe loss, 5000 it (step 11)</font>"
+          "label": "3DGS Inpainting\nInpaint360GS loss + CoMe loss, 5000 it, 1.90M Gaussians (step 11)",
+          "html": "<b>3DGS Inpainting</b><br><font style='font-size:10px'>Inpaint360GS loss + CoMe loss, 5000 it, 1.90M Gaussians (step 11)</font>"
         },
         {
           "id": "final",
           "type": "node",
           "parent": "1",
-          "label": "Final inpainted 3DGS\n(render, step 12)",
-          "html": "Final inpainted 3DGS<br>(render, step 12)"
+          "label": "Final inpainted 3DGS\n(render, step 12)\ntest PSNR outside obj. 23.3 dB",
+          "html": "Final inpainted 3DGS<br>(render, step 12)<br>test PSNR outside obj. 23.3 dB"
         },
         {
           "id": "i_frem",
@@ -253,8 +254,8 @@
           "id": "mesh",
           "type": "node",
           "parent": "1",
-          "label": "Mesh Extraction\nCoMe tetrahedra (extract_mesh_tets)",
-          "html": "<b>Mesh Extraction</b><br><font style='font-size:10px'>CoMe tetrahedra (extract_mesh_tets)</font>"
+          "label": "Mesh Extraction\nCoMe tetrahedra (extract_mesh_tets), 16.38M V / 32.96M F",
+          "html": "<b>Mesh Extraction</b><br><font style='font-size:10px'>CoMe tetrahedra (extract_mesh_tets), 16.38M V / 32.96M F</font>"
         },
         {
           "id": "i_mesh",
@@ -273,8 +274,8 @@
           "id": "table",
           "type": "node",
           "parent": "1",
-          "label": "Filled table mesh\nmesh_come_v2_table.ply",
-          "html": "Filled table mesh<br>mesh_come_v2_table.ply"
+          "label": "Filled table mesh\nmesh_come_v2_table.ply\n3.44M V / 6.88M F",
+          "html": "Filled table mesh<br>mesh_come_v2_table.ply<br>3.44M V / 6.88M F"
         },
         {
           "id": "i_table",
@@ -292,81 +293,100 @@
           "id": "s5",
           "type": "node",
           "parent": "1",
-          "label": "Stage 5 – Object mesh placed on the filled table (step 14–15)"
+          "label": "Stage 5 – Object mesh (InstantMesh, step 14) placed on the filled table (step 15)"
         },
         {
           "id": "objg",
           "type": "node",
           "parent": "1",
-          "label": "Object Gaussians ID 44\n(prob > 0.7, DBSCAN)",
-          "html": "Object Gaussians ID 44<br>(prob > 0.7, DBSCAN)"
+          "label": "14.1 Object Gaussians\nID 44: 3243 Gaussians, seen by 103 cameras",
+          "html": "<b>14.1 Object Gaussians</b><br><font style='font-size:10px'>ID 44: 3243 Gaussians, seen by 103 cameras</font>"
         },
         {
           "id": "i_objg",
           "type": "node",
           "parent": "1",
-          "image": "images/step14_view_side_object_gaussians.png"
+          "image": "images/step14_1_view_side_object_gaussians.png"
         },
         {
-          "id": "close",
+          "id": "i_objm",
           "type": "node",
           "parent": "1",
-          "label": "Predict underside (step 14)\nbottom = support + ε (rays onto filled table), walls",
-          "html": "<b>Predict underside (step 14)</b><br><font style='font-size:10px'>bottom = support + ε (rays onto filled table), walls</font>"
+          "image": "images/step14_1_frame00127_object_mask_eval.png"
         },
         {
-          "id": "i_close",
+          "id": "orbit",
           "type": "node",
           "parent": "1",
-          "image": "images/step14_view_side_closed_gaussians.png"
+          "label": "14.2 Orbit video\nobject-only 3DGS, 240 frames + reliability",
+          "html": "<b>14.2 Orbit video</b><br><font style='font-size:10px'>object-only 3DGS, 240 frames + reliability</font>"
         },
         {
-          "id": "i_hmap",
+          "id": "i_orb",
           "type": "node",
           "parent": "1",
-          "image": "images/step14_support_height.png"
+          "image": "images/step14_2_orbit_rgb.png"
         },
         {
-          "id": "omesh",
+          "id": "i_orbr",
           "type": "node",
           "parent": "1",
-          "label": "Object mesh\nCoMe tetrahedra, 87 views seeing the napkin",
-          "html": "<b>Object mesh</b><br><font style='font-size:10px'>CoMe tetrahedra, 87 views seeing the napkin</font>"
+          "image": "images/step14_2_orbit_reliability.jpg"
         },
         {
-          "id": "i_raw",
+          "id": "vsel",
           "type": "node",
           "parent": "1",
-          "image": "images/step15_view_side_raw_come_mesh.png"
+          "label": "14.3 View selection\ncoverage × reliability, k = 6 (+ uniform 6 views)",
+          "html": "<b>14.3 View selection</b><br><font style='font-size:10px'>coverage × reliability, k = 6 (+ uniform 6 views)</font>"
         },
         {
-          "id": "solid",
+          "id": "i_vsel",
           "type": "node",
           "parent": "1",
-          "label": "Height-field solid (step 15)\ntop = CoMe mesh, bottom = table + ε, watertight",
-          "html": "<b>Height-field solid (step 15)</b><br><font style='font-size:10px'>top = CoMe mesh, bottom = table + ε, watertight</font>"
+          "image": "images/step14_3_selected_views.jpg"
         },
         {
-          "id": "i_solid",
+          "id": "lrm",
           "type": "node",
           "parent": "1",
-          "image": "images/step15_view_side_closed_solid.png"
+          "label": "14.4 InstantMesh\nmulti-view diffusion + LRM, 3 view sets",
+          "html": "<b>14.4 InstantMesh</b><br><font style='font-size:10px'>multi-view diffusion + LRM, 3 view sets</font>"
         },
         {
-          "id": "i_xs",
+          "id": "i_lrm",
           "type": "node",
           "parent": "1",
-          "image": "images/step15_cross_sections.png"
+          "image": "images/step14_4_inputs_uniform6.png"
+        },
+        {
+          "id": "pick",
+          "type": "node",
+          "parent": "1",
+          "label": "14.5 Pick + largest part\nbest = uniform6: IoU 0.921 on real views, watertight",
+          "html": "<b>14.5 Pick + largest part</b><br><font style='font-size:10px'>best = uniform6: IoU 0.921 on real views, watertight</font>"
+        },
+        {
+          "id": "i_pick",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step14_5_view_side_instantmesh.png"
         },
         {
           "id": "place",
           "type": "node",
           "parent": "1",
-          "label": "Place on table\nsame COLMAP frame, no vertex stitching",
-          "html": "<b>Place on table</b><br><font style='font-size:10px'>same COLMAP frame, no vertex stitching</font>"
+          "label": "Place on table (step 15)\none rigid shift along n 1.9 cm, contact sunk 4.4 %",
+          "html": "<b>Place on table (step 15)</b><br><font style='font-size:10px'>one rigid shift along n 1.9 cm, contact sunk 4.4 %</font>"
         },
         {
           "id": "i_place",
+          "type": "node",
+          "parent": "1",
+          "image": "images/step15_view_side_placed.png"
+        },
+        {
+          "id": "i_place2",
           "type": "node",
           "parent": "1",
           "image": "images/step15_view_above_scene.png"
@@ -375,14 +395,14 @@
           "id": "out",
           "type": "node",
           "parent": "1",
-          "label": "table_static.obj (static)\nnapkin_dynamic.obj (dynamic)\nscene_table_napkin.ply",
-          "html": "table_static.obj (static)<br>napkin_dynamic.obj (dynamic)<br>scene_table_napkin.ply"
+          "label": "mesh_object_placed.ply (28926 V)\nscene_scene_demo_object.ply\n(table + object, two pieces)",
+          "html": "mesh_object_placed.ply (28926 V)<br>scene_scene_demo_object.ply<br>(table + object, two pieces)"
         },
         {
           "id": "i_out",
           "type": "node",
           "parent": "1",
-          "image": "images/step15_frame00127_scene_table_napkin.png"
+          "image": "images/step15_frame00127_scene_demo_object.png"
         },
         {
           "id": "e0",
@@ -540,51 +560,50 @@
           "type": "edge",
           "parent": "1",
           "source": "objg",
-          "target": "close"
+          "target": "orbit"
         },
         {
           "id": "e22",
           "type": "edge",
           "parent": "1",
-          "source": "close",
-          "target": "omesh"
+          "source": "orbit",
+          "target": "vsel"
         },
         {
           "id": "e23",
           "type": "edge",
           "parent": "1",
-          "source": "omesh",
-          "target": "solid"
+          "source": "vsel",
+          "target": "lrm"
         },
         {
           "id": "e24",
           "type": "edge",
           "parent": "1",
-          "source": "solid",
-          "target": "place"
+          "source": "lrm",
+          "target": "pick"
         },
         {
           "id": "e25",
+          "type": "edge",
+          "parent": "1",
+          "source": "pick",
+          "target": "place"
+        },
+        {
+          "id": "e26",
           "type": "edge",
           "parent": "1",
           "source": "place",
           "target": "out"
         },
         {
-          "id": "e26",
-          "type": "edge",
-          "parent": "1",
-          "label": "removed ID 44",
-          "source": "remove",
-          "target": "objg"
-        },
-        {
           "id": "e27",
           "type": "edge",
           "parent": "1",
-          "label": "support",
-          "source": "table",
-          "target": "close"
+          "label": "ID 44 Gaussians",
+          "source": "g3did",
+          "target": "objg"
         },
         {
           "id": "e28",
