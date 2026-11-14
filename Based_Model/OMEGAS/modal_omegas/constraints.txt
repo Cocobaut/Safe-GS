@@ -1,0 +1,19 @@
+# pip constraints for the Modal image (python 3.10, CUDA 11.8, torch 2.0.1).
+# Only these pins may be changed to fix resolver conflicts; requirements.txt of the authors stays untouched.
+torch==2.0.1
+torchvision==0.15.2
+numpy==1.23.1
+diffusers==0.25.1
+transformers==4.36.2
+huggingface_hub==0.20.3
+tokenizers==0.15.2
+accelerate==0.25.0
+safetensors==0.4.2
+rembg==2.0.50
+onnxruntime==1.16.3
+opencv-python-headless==4.8.1.78
+scikit-image==0.21.0
+numba==0.58.1
+llvmlite==0.41.1
+pymatting==1.1.10
+pytorch-ignite==0.4.13

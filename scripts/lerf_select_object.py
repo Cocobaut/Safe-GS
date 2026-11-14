@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import cv2
@@ -33,7 +34,10 @@ COLORS = [(0, 0, 255), (0, 200, 0), (255, 0, 0), (0, 200, 255), (255, 0, 255)]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--scene", required=True, help="figurines hoặc teatime")
-    parser.add_argument("--lerf-root", default="F:/LERF Datasets")
+    parser.add_argument("--lerf-root", default=os.environ.get(
+        "SAFE_GS_LERF_ROOT", str(Path(os.environ.get("SAFE_GS_DATA_DIR", Path(__file__).resolve().parents[1] / "Data"))
+                                 / "LERF")),
+        help="thư mục chứa <scene>/<scene>/images (env SAFE_GS_LERF_ROOT, mặc định $SAFE_GS_DATA_DIR/LERF)")
     parser.add_argument("--frame", default=None, help="ảnh bắt đầu, ví dụ frame_00042.jpg")
     parser.add_argument("--out", default=None, help="mặc định: outputs/lerf_prompts/<scene>.json")
     args = parser.parse_args()

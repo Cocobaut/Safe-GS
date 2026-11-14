@@ -1,0 +1,49 @@
+# Replica (PLAN_REBUILD_BASE_FRAMEWORK.md, Phase 3)
+# COLMAP is NOT computed on Modal (R24/R26): pseudo-COLMAP from the GT poses by scripts/prepare_replica_colmap.py,
+# uploaded with scripts/modal_come_train.py::upload_colmap, then train from Step 1. Object GT (mesh, capped mesh,
+# footprint, instance masks for 6id --ref-masks) by scripts/prepare_replica_gt.py, from gt_instance_id below.
+# No object-free ground truth: only metrics outside the object mask + no-reference metrics.
+dataset: Replica
+defaults:
+  data_subdir: Replica 8 Scene/Replica_safegs   # DATA_DIR = F:/ (.env). Prepared by plan.md Pha 0:
+                                    #   <scene>/{images (250-300 sampled frames), traj_gt.txt, gt_mesh/, T_colmap_to_gt.json}
+  raw_subdir: Replica 8 Scene/Replica           # NICE-SLAM render (raw, read-only): <scene>/{results/image, results/depth_image,
+                                    #   traj.txt}, <scene>_mesh.ply, cam_params.json (1200x680)
+  gt_semantic_subdir: Replica/Replica-Dataset   # replica_v1: <scene_v1>/{habitat/mesh_semantic.ply, habitat/info_semantic.json}
+  dataset_name: others
+  camera_model: PINHOLE
+  resolution: 1
+  eval: true
+  has_object_free_gt: false
+  come:
+    iterations: 30000
+    gpu: L4
+  inpaint_iteration: 5000
+  mesh_iteration: 5000
+  circle_radius: null               # virtual camera circle (tools/virtual_pose.py); null = Inpaint360GS default
+  dbscan:
+    eps: null                       # null = defaults of tools_instantmesh/extract_object.py
+    min_samples: null
+  target_surrounding_id: None
+  samtrack_click: null
+  gap: 0.001
+
+scenes:                             # objects: {<name>: {run, target_id, samtrack_click}} after Step 5-6
+  office0:                          # plan.md Table 1 + Table 3
+    gt_scene_v1: office_0           # folder in gt_semantic_subdir
+    objects:
+      obj1: {run: office0_obj1, gt_instance_id: 34, target_id: 19, samtrack_click: null}   # bin, floor, 37 cm
+      obj2: {run: office0_obj2, gt_instance_id: 44, target_id: 85, samtrack_click: null}   # desk-organizer, desk, 33 cm; 4-7 via --reuse-from office0_obj1
+      obj1_nocome: {run: office0_obj1_nocome, target_id: null, samtrack_click: null}  # Table 3 (a), volume-key replica/office0_vanilla
+  office1: {objects: {}}
+  office2: {objects: {}}
+  office3: {objects: {}}
+  office4: {objects: {}}
+  room0:                            # plan.md Table 1 + Table 3
+    gt_scene_v1: room_0
+    objects:
+      obj1: {run: room0_obj1, gt_instance_id: 43, target_id: 192, samtrack_click: null}     # pot, table, 24 cm
+      obj2: {run: room0_obj2, gt_instance_id: 79, target_id: 18, samtrack_click: null}     # candle, side table, 27 cm; 4-7 via --reuse-from room0_obj1
+      obj1_nocome: {run: room0_obj1_nocome, target_id: null, samtrack_click: null}    # Table 3 (a), volume-key replica/room0_vanilla
+  room1: {objects: {}}
+  room2: {objects: {}}

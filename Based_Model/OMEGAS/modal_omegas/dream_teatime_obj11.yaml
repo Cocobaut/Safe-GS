@@ -1,0 +1,84 @@
+# DreamGaussian config for OMEGAS Step 5A, teatime object 11 (white paper napkin).
+# Copy of configs/dream/dream_teatime.yaml + the keys dream_gaussian_2D.py reads but the shipped yaml lacks.
+# The runner (modal_omegas.py::step5_completion) overrides from the data on the CLI:
+#   load, W, H, _W, _H, fovy, fovx (radians, from cameras.json) and radius (from camera distance to the object).
+
+### Input
+input:
+prompt: "a photo of a white paper napkin"
+negative_prompt:
+mesh:
+elevation: 0
+ref_size: 256
+density_thresh: 1
+
+### Keys required by dream_gaussian_2D.py (missing in the authors' yaml)
+iteration: "30000"        # string: the code builds "iteration_" + opt.iteration
+select_obj_id: [11]
+depth_ratio: 1.0
+render_mesh: false        # true would need train/ours_30000/fuse_post.ply inside the object folder
+sd: "refined_sd"          # paper: DreamBooth-personalized SD 2.1 (weights of Step 5P, path remapped by omegas_launch.py)
+threshold: 17             # default th of StableDiffusion.sd_mask()
+
+### Output
+outdir: logs
+mesh_format: obj
+save_path: ???
+
+### Training (unused by random_render_mask, kept from the original config)
+mvdream: False
+imagedream: False
+stable_zero123: True
+lambda_sd: 1
+lambda_zero123: 0
+sdsiter: 400
+warmup_rgb_loss: True
+batch_size: 1
+iters: 400
+anneal_timestep: True
+random_n: 80
+
+# training camera radius (overridden at runtime)
+radius: 1.0
+# camera intrinsics in RADIANS (overridden at runtime from cameras.json)
+_fovy: 30
+fovy: 0.8766048779465441
+fovx: 1.1345877176317305
+_H: 686
+_W: 978
+# elevation range of the random views. The runner rotates the scene so world up = -y; with
+# orbit_camera() (y = -r*sin(ver)) a positive ver puts the camera ABOVE the table, looking down.
+min_ver: 10
+max_ver: 45
+# folder of the extracted object (overridden at runtime)
+load: /vol/outputs/teatime_napkin/step5_gaussian_completion/object_11/
+train_geo: False
+invert_bg_prob: 0.5
+
+### GUI
+gui: False
+force_cuda_rast: False
+H: 686
+W: 978
+
+### Gaussian splatting
+num_pts: 500000
+sh_degree: 3
+position_lr_init: 0.00016
+position_lr_final: 0.0000016
+position_lr_delay_mult: 0.01
+position_lr_max_steps: 500
+feature_lr: 0.0025
+opacity_lr: 0.05
+scaling_lr: 0.005
+rotation_lr: 0.001
+percent_dense: 0.01
+density_start_iter: 0
+density_end_iter: 3000
+densification_interval: 100
+opacity_reset_interval: 700
+densify_grad_threshold: 0.01
+
+### Textured Mesh
+geom_lr: 0.0001
+texture_lr: 0.2

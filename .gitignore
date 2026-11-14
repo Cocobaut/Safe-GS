@@ -246,7 +246,13 @@ outpus/
 *.db
 
 # Local-only test_model folders
-test_model/CoMe_Infusion/
-test_model/CoMe_Infusion_Inpainting/
-test_model/2D_inpainting/
-test_model/ID_synchornization/
+test_model/
+
+# ------------------------------------------------------------------------------
+# Base framework src/ (PLAN_REBUILD_BASE_FRAMEWORK.md): code folders whose names
+# collide with the generic data rules above must stay tracked
+# ------------------------------------------------------------------------------
+!src/**/datasets/
+!src/LaMa/bin/debug/
+!configs/datasets/
+!src/LaMa/models/lpips_models/*.pth
