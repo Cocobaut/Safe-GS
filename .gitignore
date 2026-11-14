@@ -243,14 +243,16 @@ Data/Replica/
 !Data/**/*.md
 
 outpus/
-
-# Dữ liệu và kết quả pipeline (vài chục GB): không đưa lên git, chỉ giữ README / tài liệu .md trong Data/
-Data/**
-!Data/**/
-!Data/**/*.md
-share/
-*.zip
 *.db
 
-# Cấu hình riêng của Claude Code trên từng máy
-.claude/
+# Local-only test_model folders
+test_model/
+
+# ------------------------------------------------------------------------------
+# Base framework src/ (PLAN_REBUILD_BASE_FRAMEWORK.md): code folders whose names
+# collide with the generic data rules above must stay tracked
+# ------------------------------------------------------------------------------
+!src/**/datasets/
+!src/LaMa/bin/debug/
+!configs/datasets/
+!src/LaMa/models/lpips_models/*.pth

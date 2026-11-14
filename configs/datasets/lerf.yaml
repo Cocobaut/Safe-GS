@@ -1,0 +1,71 @@
+# LERF (PLAN_REBUILD_BASE_FRAMEWORK.md, Phase 3)
+# IDs: target_id = Inpaint360GS / HQ-SAM associated ID space (Step 6 images_<res>_num, used by tools/init_configs.py);
+#      ref_mask_id = SAM2 synced-label ID space (Step 3 reference only). Both are only valid for the run that made them:
+#      a new scene / rerun of Step 5-6 needs new IDs: run_pipeline.py --step 6id --ref-masks <dir> | --click f x y
+dataset: LERF
+defaults:
+  data_subdir: LERF Datasets        # DATA_DIR = F:/ (.env). The zips unpack as F:/LERF Datasets/<scene>/<scene>/images,
+                                    # so every scene overrides data_subdir with "LERF Datasets/<scene>" (data_dir = .../<scene>/<scene>)
+  dataset_name: others              # Inpaint360GS config folder (config/object_*/others/<scene>.json)
+  camera_model: PINHOLE
+  image_size: [994, 738]
+  resolution: 1
+  eval: true                        # 1/8 of the views held out as test
+  has_object_free_gt: false         # no photo of the table without the object
+  camera_radius: [1.1, 1.4]
+  come:
+    iterations: 30000
+    gpu: L4
+  inpaint_iteration: 5000           # step 11 point_cloud_inpainted_iter<N>.ply, step 13 --iteration
+  mesh_iteration: 5000
+  target_surrounding_id: None
+  samtrack_click: null              # [x, y] on the virtual views (Step 9)
+  gap: 0.001                        # Step 15 clearance (scene units)
+  removal_thresh: null              # Step 8: probability threshold of the removal (null = Inpaint360GS 0.7)
+  virtual_object_centered: false    # Step 8: true = virtual cameras circle the target object (object off the
+                                    # capture focus); false = Inpaint360GS default (focus point of the cameras)
+
+scenes:
+  teatime:
+    data_subdir: LERF Datasets/teatime
+    images_registered: 177          # 3 of 180 frames not registered (frame_00148/00155/00156)
+    objects:
+      napkin:
+        run: teatime_napkin
+        target_id: 44
+        ref_mask_id: 11
+        samtrack_click: [482, 371]
+      bear:
+        run: teatime_bear
+        target_id: 55
+        ref_mask_id: null
+        samtrack_click: [433, 452]  # from outputs/LERF/teatime_bear/step9_inpaint_masks_samt/summary.json (steps 0-12 done)
+      cafe_box:                     # coffee box (id 30 in step6 synced IDs of teatime_napkin: 4_ids_on_masks_color)
+        run: teatime_cafe_box
+        target_id: 30
+        virtual_object_centered: true   # bag is off the capture focus: virtual cameras circle the object itself
+        object_max_height_frac: 3.0     # tall object (step 14.1 keeps Gaussians up to 3 x its table footprint)
+        removal_thresh: 0.3             # 0.7 left the bottom of the bag (README of Inpaint360GS: lower if not clean)
+        samtrack_click: null        # no click: step 9 uses the model's own mask of id 30 (or set [x, y] after step 8)
+      # --- plan.md Table 3 (a) w/o CoMe: model on --volume-key lerf/teatime_nocome (preset vanilla), IDs from its own 6id
+      napkin_nocome:
+        run: teatime_napkin_nocome
+        target_id: null
+        samtrack_click: null
+      cafe_box_nocome:
+        run: teatime_cafe_box_nocome
+        target_id: null
+        virtual_object_centered: true
+        object_max_height_frac: 3.0
+        removal_thresh: 0.3
+        samtrack_click: null
+  ramen:                            # plan.md Table 2 (LERF composite); no sparse/0 yet -> Step 0 COLMAP
+    data_subdir: LERF Datasets/ramen
+    objects:
+      main:
+        run: ramen_main
+        target_id: null             # fill after: run_pipeline.py --run ramen_main --step 6id --click <frame> <x> <y>
+        samtrack_click: null
+  figurines:
+    data_subdir: LERF Datasets/figurines
+    objects: {}                     # choose IDs after Step 5-6

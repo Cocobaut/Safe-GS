@@ -1,0 +1,60 @@
+# Inpaint360GS dataset (PLAN_REBUILD_BASE_FRAMEWORK.md, Phase 3)
+# Source of the values: Based_Model/Inpaint360GS/run_seg.sh, run_remove.sh, run_inpaint.sh, README.md.
+# Download: bash src/scripts/download_inpaint360gs_dataset.sh (-> data/inpaint360/<scene>, data/others/<scene>)
+# Prepare:  bash src/scripts/run_data_prepare.sh (convert.py + tools/separate_train_test_ply.py)
+# IMPORTANT: src/scene/dataset_readers.py switches behaviour on the substring "inpaint360" in the source path
+# (test split = object-free GT). Keep "inpaint360" in the data path of this dataset and NEVER in LERF / Replica paths.
+dataset: Inpaint360GS
+defaults:
+  data_subdir: inpaint360/inpaint360     # DATA_DIR = F:/ (.env) -> F:/inpaint360/inpaint360/<scene>/{images*,sparse,unseen_mask}
+  dataset_name: inpaint360               # config/object_*/inpaint360/<scene>.json
+  resolution: 2
+  eval: true
+  has_object_free_gt: true               # PSNR / SSIM / LPIPS / masked FID (src/tools/metrics_fid_masked.py)
+  come:
+    iterations: 30000
+    gpu: L4
+  inpaint_iteration: 5000
+  mesh_iteration: 5000
+  target_surrounding_id: None
+  samtrack_click: null
+  gap: 0.001
+
+scenes:
+  doppelherz:
+    resolution: 2
+    objects:
+      main:
+        run: doppelherz_main
+        target_id: 26                    # authors' run_remove.sh (their segmentation IDs - recheck after Step 6)
+        target_surrounding_id: "24,10"
+  toys:                                  # listed in README, IDs not given by the authors
+    objects:
+      main:
+        run: toys_main
+        target_id: null                  # fill after 6id; must cover ALL objects removed in the Clean GT (plan.md R16)
+        target_surrounding_id: None
+  redbull:                               # 102 IMG_* (with object) + 83 test_IMG_* (object-free GT), PINHOLE, authors' sparse/0
+    objects:
+      main:
+        run: redbull_main
+        target_id: 7                     # 6id: wire bull sculpture (click IMG_2760 1154,830), 100/102 frames
+        target_surrounding_id: None
+  fruits:
+    objects:
+      main:
+        run: fruits_main
+        target_id: null                  # fill after 6id; must cover ALL objects removed in the Clean GT (plan.md R16)
+        target_surrounding_id: None
+
+others:                                  # "others" split shipped with the dataset (no object-free GT)
+  kitchen:
+    data_subdir: inpaint360/others       # NOT on F: yet (only F:/inpaint360/inpaint360 exists)
+    dataset_name: others
+    resolution: 4
+    has_object_free_gt: false
+    objects:
+      main:
+        run: kitchen_main
+        target_id: 14                    # authors' run_remove.sh (commented "others" block)
+        target_surrounding_id: None

@@ -69,7 +69,9 @@ def create_from_pcd(pcd,path):
     elements[:] = list(map(tuple, attributes))
     el = PlyElement.describe(elements, 'vertex')
     PlyData([el]).write(path)
-def load_ply(path):
+def load_ply(path, sh_degree=None):
+    if sh_degree is None:
+        sh_degree = max_sh_degree
     plydata = PlyData.read(path)
     
     xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
@@ -84,12 +86,12 @@ def load_ply(path):
 
     extra_f_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_rest_")]
     extra_f_names = sorted(extra_f_names, key = lambda x: int(x.split('_')[-1]))
-    assert len(extra_f_names)==3*(max_sh_degree + 1) ** 2 - 3
+    assert len(extra_f_names)==3*(sh_degree + 1) ** 2 - 3
     features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
     for idx, attr_name in enumerate(extra_f_names):
         features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
     # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
-    features_extra = features_extra.reshape((features_extra.shape[0], 3, (max_sh_degree + 1) ** 2 - 1))
+    features_extra = features_extra.reshape((features_extra.shape[0], 3, (sh_degree + 1) ** 2 - 1))
 
     scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
     scale_names = sorted(scale_names, key = lambda x: int(x.split('_')[-1]))
@@ -145,8 +147,12 @@ def similar_points_tree(point_cloud_A, point_cloud_B, threshold):
 
     return similar_indices
 def composition(xyz_rgb, features_dc_rgb, features_extra_rgb, opacities_rgb, scales_rgb, rots_rgb,path_2):
-    xyz_binary, features_dc_binary, features_extra_binary, opacities_binary, scales_binary, rots_binary = load_ply(path_2)
+    xyz_binary, features_dc_binary, features_extra_binary, opacities_binary, scales_binary, rots_binary = load_ply(path_2, 0)
     print(xyz_binary.shape)
+    # Inpainted Gaussians are created with SH degree 0: pad the higher-order coefficients with zeros
+    if features_extra_binary.shape[2] < features_extra_rgb.shape[2]:
+        pad = np.zeros((features_extra_binary.shape[0], 3, features_extra_rgb.shape[2] - features_extra_binary.shape[2]))
+        features_extra_binary = np.concatenate((features_extra_binary, pad), axis=2)
     xyz = np.concatenate((xyz_rgb, xyz_binary), axis=0)
     features_dc = np.concatenate((features_dc_rgb,features_dc_binary),axis=0)
     features_rest = np.concatenate((features_extra_rgb,features_extra_binary),axis=0)
@@ -182,8 +188,10 @@ if __name__ == "__main__":
     parser.add_argument('--nb_points', type=int, default=100, help='Number of points for the remove_radius_outlier function.')
     parser.add_argument('--radius', type=float, default=0.1, help='Radius for the remove_radius_outlier function.')
     parser.add_argument('--threshold', type=float, default=1.0, help='Threshold for the similar_points_tree function.')
+    parser.add_argument('--sh_degree', type=int, default=0, help='SH degree of the Original Gaussians.')
 
     args = parser.parse_args()
+    max_sh_degree = args.sh_degree
 
 
     origin = args.original_ply
@@ -215,7 +223,7 @@ if __name__ == "__main__":
 
 
     # Load Painted Gaussians and Original Gaussians
-    xyz, features_dc, features_extra, opacities, scales, rots = load_ply(processed_supp)
+    xyz, features_dc, features_extra, opacities, scales, rots = load_ply(processed_supp, 0)
     print("There are {} points in the inpainted Gaussians.".format(len(xyz)))
     xyz2, features_dc2, features_extra2, opacities2, scales2, rots2 = load_ply(origin)
     print("There are {} points in the original Gaussians.".format(len(xyz2)))

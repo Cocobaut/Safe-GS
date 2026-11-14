@@ -56,10 +56,6 @@ class ModelParams(ParamGroup):
         self.eval = False
         self._unique_image=''
         self._new_image="image"
-        # Inpaint nhiều view (fine-tune chung): "frame_a.png=/path/a_inp.png,frame_b.png=/path/b_inp.png"
-        # Các view này dùng ảnh inpaint + mask rỗng (giám sát toàn ảnh), lặp inpainted_repeat lần trong danh sách camera
-        self.inpainted_views = ""
-        self.inpainted_repeat = 1
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):

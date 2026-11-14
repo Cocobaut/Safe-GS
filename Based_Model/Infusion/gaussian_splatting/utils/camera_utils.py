@@ -56,16 +56,11 @@ def cameraList_from_camInfos(cam_infos, resolution_scale, args):
     camera_list = []
     id = 0
     if args.unique_image !='nothing':
-        # Hỗ trợ nhiều view inpaint: -u "a.png,b.png" -n "a_inp.png,b_inp.png" (một view như cũ vẫn chạy)
-        uniques = args.unique_image.split(',')
-        news = args.new_image.split(',') if args.new_image != "image" else ["image"] * len(uniques)
-        new_of = dict(zip(uniques, news))
         for id, c in enumerate(cam_infos):
-            name = c.image_path.split('/')[-1]
-            if name in new_of:
-                if new_of[name] != "image":
-                    c=c._replace(image_path=new_of[name])
-                    c=c._replace(image=Image.open(new_of[name]).convert("RGB"))
+            if c.image_path.split('/')[-1] == args.unique_image:
+                if args.new_image!="image":
+                    c=c._replace(image_path=args.new_image)
+                    c=c._replace(image=Image.open(args.new_image).convert("RGB"))
                 camera_list.append(loadCam(args, id, c, resolution_scale))
                 id+=1
             
@@ -73,19 +68,8 @@ def cameraList_from_camInfos(cam_infos, resolution_scale, args):
             else:
                 continue
     else:
-        inpainted = getattr(args, "inpainted_views", None) or ""
-        inp_of = dict(item.split("=", 1) for item in inpainted.split(",") if item)
-        repeat = max(1, int(getattr(args, "inpainted_repeat", None) or 1))
         for id, c in enumerate(cam_infos):
-            name = c.image_path.split('/')[-1]
-            if name in inp_of:
-                # View đã inpaint: ảnh inpaint + mask rỗng -> giám sát cả vùng vật đã xóa
-                c = c._replace(image_path=inp_of[name], image=Image.open(inp_of[name]).convert("RGB"))
-                cam = loadCam(args, id, c, resolution_scale)
-                cam.original_image_mask = np.zeros_like(cam.original_image_mask)
-                camera_list.extend([cam] * repeat)
-            else:
-                camera_list.append(loadCam(args, id, c, resolution_scale))
+            camera_list.append(loadCam(args, id, c, resolution_scale))
     return camera_list
 
 def camera_to_JSON(id, camera : Camera):

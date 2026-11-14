@@ -1,0 +1,25 @@
+# Relative paths & Modal storage for Safe-GS (PLAN_REBUILD_BASE_FRAMEWORK.md, Phase 2).
+# Local paths are relative to PROJECT_ROOT (folder that holds this configs/ dir); src/common/paths.py is the
+# Python source of truth, env vars SAFE_GS_DATA_DIR / SAFE_GS_OUTPUTS_DIR / MODAL_PROFILE override.
+
+local:
+  src_dir: src
+  come_dir: src/come               # CoMe code: run with cwd=src/come (Step 1, 2, 13)
+  data_dir: Data                   # override: SAFE_GS_DATA_DIR
+  outputs_dir: outputs             # gitignored; outputs/<Dataset>/<scene>_<object>/stepN_*
+  configs_dir: configs
+  datasets_config_dir: configs/datasets
+
+modal:
+  profile: null                    # null = currently active profile; or env MODAL_PROFILE
+  mount: /vol
+  volumes:
+    come_train: safe-gs-come       # Step 0-2: <dataset>/<scene>/{images,colmap,come,renders}
+    pipeline: inpaint360gs         # Step 4-13: come360/{data,output,ref,export,mesh,state}
+    instantmesh: instantmesh       # Step 14: HF cache + <dataset>/<run>/step14_instantmesh
+    outputs: safe-gs-outputs       # shared copy of outputs/<Dataset>/<run> (modal_sync.py)
+    dataset: safe-gs-dataset       # raw datasets (modal_sync.py)
+    hf_cache: safe-gs-hf-cache
+  pipeline_prefix: come360
+  gpu_come: [L4, L40S]             # CoMe CUDA extensions built for sm_89 (never A10G)
+  gpu_lama: T4
