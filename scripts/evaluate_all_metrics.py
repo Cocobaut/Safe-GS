@@ -332,6 +332,15 @@ def eval_step15(run: Path) -> dict | None:
             "physically_plausible": af.get("vertices_inside_table") == 0 and (cl[0] or -1) >= 0}
 
 
+def eval_step16(run: Path) -> dict | None:
+    s = _json(step_dir(run, 16) / "final_physics_report.json")
+    if not s:
+        return None
+    keys = ("mode", "stable_no_nan", "grasp_success", "max_table_penetration", "max_table_penetration_rel_object_width",
+            "settle_drift", "commanded_lift", "final_object_lift", "max_fold_angle_deg", "realtime_factor", "robot_reachable")
+    return {k: s.get(k) for k in keys}
+
+
 # ==================================================================================================== report
 def evaluate_run(dataset: str, run: str, args) -> dict:
     from common.datasets import resolve_run
@@ -354,7 +363,8 @@ def evaluate_run(dataset: str, run: str, args) -> dict:
            "step12_inpainting_quality": None if args.skip_images else eval_step12(rd, cfg, args.dilate, args.max_views),
            "step13_table_mesh": eval_step13(rd, args.plane, args.skip_geometry),
            "step14_object_mesh": eval_step14(rd),
-           "step15_merge_physics": eval_step15(rd)}
+           "step15_merge_physics": eval_step15(rd),
+           "step16_physics_sim": eval_step16(rd)}
     res["seconds"] = round(time.time() - t0, 1)
     (rd / "evaluation_summary.json").write_text(json.dumps(res, indent=2, ensure_ascii=False))
     print(f"[ok] {dataset}/{run} -> {rd / 'evaluation_summary.json'} ({res['seconds']} s)")
@@ -382,6 +392,10 @@ COLUMNS = [  # (header, path in evaluation_summary.json)
     ("S15 V with table below", "step15_merge_physics.vertices_with_table_below"),
     ("S15 boundary edges", "step15_merge_physics.boundary_edges"),
     ("S15 non-manifold", "step15_merge_physics.non_manifold_edges"),
+    ("S16 grasp success", "step16_physics_sim.grasp_success"),
+    ("S16 max penetration", "step16_physics_sim.max_table_penetration"),
+    ("S16 object lift", "step16_physics_sim.final_object_lift"),
+    ("S16 realtime factor", "step16_physics_sim.realtime_factor"),
 ]
 
 

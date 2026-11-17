@@ -11,11 +11,15 @@ Local CPU steps run here; GPU steps are launched on Modal (printed, or executed 
     14.1     local: src/tools_instantmesh/extract_object.py
     14 / 14.2-14.5  scripts/modal_instantmesh.py InstantMesh                       (Volume instantmesh)
     15       local: src/tools_instantmesh/place_on_table.py
+    16       local: 16.1 src/tools_physics/prepare_assets.py   sim frame, textured meshes, colliders, MJCF
+                    16.2 src/tools_physics/run_sim.py          MuJoCo robot arm pick & lift -> report
+                    16.3 src/tools_physics/render_3dgs.py      same trajectory rendered with the Gaussians
 
   python scripts/run_pipeline.py --check-env
   python scripts/run_pipeline.py --list
   python scripts/run_pipeline.py --dataset LERF --run teatime_napkin --step 14.1 --object-id 44
   python scripts/run_pipeline.py --dataset LERF --run teatime_napkin --step 15
+  python scripts/run_pipeline.py --dataset LERF --run teatime_napkin --step 16        # = 16.1, 16.2, 16.3
   python scripts/run_pipeline.py --dataset LERF --run teatime_napkin --steps 4-12 --dry-run   # commands of each part
   python scripts/run_pipeline.py --dataset LERF --run teatime_napkin --steps 4-12 --modal     # launch on Modal
 """
@@ -38,8 +42,9 @@ sys.path[:0] = [str(SRC), str(SCRIPTS)]
 
 from common.paths import CONFIGS_DIR, DATA_DIR, OUTPUTS_DIR, get_run_dir, step_dir  # noqa: E402
 
-LOCAL_STEPS = {"6id", "11c", "13p", "13b", "14.1", "15"}
-ORDER = ["0", "1", "2", "4", "5", "6", "6id", "7", "8", "9", "10", "11", "12", "11c", "13", "13p", "13b", "14.1", "14", "15"]
+LOCAL_STEPS = {"6id", "11c", "13p", "13b", "14.1", "15", "16.1", "16.2", "16.3"}
+SUB_STEPS = {"16": ["16.1", "16.2", "16.3"]}   # one step number -> its local parts
+ORDER = ["0", "1", "2", "4", "5", "6", "6id", "7", "8", "9", "10", "11", "12", "11c", "13", "13p", "13b", "14.1", "14", "15", "16"]
 
 
 def _utf8():
@@ -105,11 +110,11 @@ def expand(spec: str) -> list[str]:
             a, b = tok.split("-")
             i, j = ORDER.index(a), ORDER.index(b)
             out += ORDER[i:j + 1]
-        elif tok in ORDER or tok in ("14.2", "14.3", "14.4", "14.5"):
+        elif tok in ORDER or tok in ("14.2", "14.3", "14.4", "14.5") or tok in SUB_STEPS.get(tok.split(".")[0], ()):
             out.append(tok)
         else:
             raise SystemExit(f"unknown step '{tok}' ({', '.join(ORDER)})")
-    return out
+    return [p for s_ in out for p in SUB_STEPS.get(s_, [s_])]
 
 
 def modal_cmds(step: str, cfg: dict, args) -> list[tuple[list[str], bool]] | None:
@@ -191,6 +196,13 @@ def local_cmd(step: str, cfg: dict, args) -> list[str]:
     if step == "15":
         gap = ["--gap", str(args.gap if args.gap is not None else cfg.get("gap", 0.001))]
         return py + [str(SRC / "tools_instantmesh" / "place_on_table.py"), "--run", run_dir] + gap + plane + (["--force"] if args.force else [])
+    if step == "16.1":
+        oid = args.object_id or cfg.get("target_id")
+        return py + [str(SRC / "tools_physics" / "prepare_assets.py"), "--run", run_dir] +             (["--object-id", str(oid)] if oid is not None else []) +             (["--mode", args.physics_mode] if args.physics_mode else []) + (["--force"] if args.force else [])
+    if step == "16.2":
+        return py + [str(SRC / "tools_physics" / "run_sim.py"), "--run", run_dir]
+    if step == "16.3":
+        return py + [str(SRC / "tools_physics" / "render_3dgs.py"), "--run", run_dir]
     raise ValueError(step)
 
 
@@ -210,11 +222,13 @@ def main():
     ap.add_argument("--dataset", default="LERF", help="LERF | Replica | Inpaint360GS")
     ap.add_argument("--run", default="teatime_napkin", help="<scene>_<object>, e.g. teatime_napkin")
     ap.add_argument("--scene", default=None, help="scene of an undeclared run (default: run minus the last _part)")
-    ap.add_argument("--step", default=None, help="one step: 0..15, 13b, 14.1, 14.2 ...")
+    ap.add_argument("--step", default=None, help="one step: 0..16, 13b, 14.1, 14.2, 16.1 ...")
     ap.add_argument("--steps", default=None, help="range / list: 4-12, 13b,14.1, all")
     ap.add_argument("--object-id", type=int, default=None, help="step 14.1 (default: target_id of the config)")
     ap.add_argument("--plane", default=None, help="table_plane.json for 13b / 14.1 / 15")
     ap.add_argument("--gap", type=float, default=None, help="step 15 clearance")
+    ap.add_argument("--physics-mode", default=None, choices=["articulated", "flex", "rigid"],
+                    help="step 16.1 object model (default: physics.mode of the YAML)")
     ap.add_argument("--ref-masks", default=None, help="step 6id: reference masks of the object (per frame)")
     ap.add_argument("--ref-id", type=int, default=None, help="step 6id: id of the object in --ref-masks")
     ap.add_argument("--click", nargs=3, default=None, metavar=("FRAME", "X", "Y"), help="step 6id: pixel on a photo")

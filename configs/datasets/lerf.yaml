@@ -29,6 +29,9 @@ scenes:
   teatime:
     data_subdir: LERF Datasets/teatime
     images_registered: 177          # 3 of 180 frames not registered (frame_00148/00155/00156)
+    physics:                        # Step 16 (src/tools_physics, defaults in physics_io.PHYS_DEFAULTS)
+      floor_z: -1.95                # floor 1.95 scene units under the table top (teatime_napkin step14 sim)
+      mode: articulated             # napkin = 3 hinged segments; flex = <flexcomp>; rigid = CoACD hulls
     objects:
       napkin:
         run: teatime_napkin
@@ -47,6 +50,7 @@ scenes:
         object_max_height_frac: 3.0     # tall object (step 14.1 keeps Gaussians up to 3 x its table footprint)
         removal_thresh: 0.3             # 0.7 left the bottom of the bag (README of Inpaint360GS: lower if not clean)
         samtrack_click: null        # no click: step 9 uses the model's own mask of id 30 (or set [x, y] after step 8)
+        physics: {mode: rigid, object_mass: 0.25}   # step 16: rigid box, CoACD colliders
       # --- plan.md Table 3 (a) w/o CoMe: model on --volume-key lerf/teatime_nocome (preset vanilla), IDs from its own 6id
       napkin_nocome:
         run: teatime_napkin_nocome

@@ -70,10 +70,13 @@ STEP_DIRS = {
     "13": "step13_come_mesh",
     "14": "step14_instantmesh",
     "15": "step15_object_mesh_merge",
+    "16": "step16_physics_engine",
 }
 # Names used for scenes produced by the new runners (no "reuse")
 NEW_STEP_DIRS = {**STEP_DIRS, "0": "step0_colmap", "1": "step1_come_3dgs", "2": "step2_come_renders",
                  "3": "step3_object_reference"}
+# Other names found in real runs (teatime_napkin_v2 has step8_removal_virtual_cam without "_v2")
+ALT_STEP_DIRS = {"8": ("step8_removal_virtual_cam",)}
 
 
 OURS = "ours"                  # outputs/<dataset>/<method>/...: ours | CoMe | MILo | Inpaint360GS | NeRFiller
@@ -92,8 +95,8 @@ def get_run_dir(dataset: str, run_name: str) -> Path:
 def step_dir(run_dir: Path, step: str | int) -> Path:
     """Existing folder of a step inside a run (reference names first, then new-runner names)."""
     key = str(step).split(".")[0]
-    for table in (STEP_DIRS, NEW_STEP_DIRS):
-        cand = Path(run_dir) / table[key]
+    for name in (STEP_DIRS[key], NEW_STEP_DIRS[key], *ALT_STEP_DIRS.get(key, ())):
+        cand = Path(run_dir) / name
         if cand.exists():
             return cand
     return Path(run_dir) / NEW_STEP_DIRS[key]
