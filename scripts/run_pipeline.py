@@ -105,7 +105,8 @@ def expand(spec: str) -> list[str]:
     for tok in spec.split(","):
         tok = tok.strip()
         if tok in ("all", ""):
-            return list(ORDER)
+            out = list(ORDER)
+            break
         if "-" in tok:
             a, b = tok.split("-")
             i, j = ORDER.index(a), ORDER.index(b)

@@ -84,10 +84,13 @@ def main():
     from plyfile import PlyData  # noqa: F401  (fail early if missing)
     OVs = fr.to_sim(OV)
     if cfg["object_color"] == "mesh" and OC is not None:
-        ocol = OC
+        ocol, color_used = OC, "mesh"
     else:
         gxyz, grgb, _ = pio.read_gs_points(inp["object_gs"], min_opacity=0.3)
-        ocol = pio.knn_colors(OV, gxyz, grgb)
+        ocol, color_used = pio.knn_colors(OV, gxyz, grgb), "gs"
+    if color_used != cfg["object_color"]:
+        print(f"[16.1] WARNING object_color={cfg['object_color']} but {Path(inp['object_mesh']).name} has no vertex "
+              f"colours -> object texture baked from the step-8 Gaussians instead")
     V, F, N, C = pio.decimate(OVs, OF, cfg["object_tris"], colors=ocol)
     lo, hi = V.min(0), V.max(0)
     W, D, H = hi - lo
@@ -118,6 +121,12 @@ def main():
             segs.append({"body": f"object_seg{i}", "mesh": f"object_seg{i}.obj", "origin": origins[i].tolist(),
                          "faces": int(len(fi)), "z_top": float(V[used, 2].max()), "y_range": [float(yb[i]), float(yb[i + 1])]})
         obj.update(segments=segs, y_bounds=yb.tolist())
+        # one continuous visual <skin>: every vertex blends the two nearest strips (no gaps / overlaps at the hinges)
+        Wv = pio.segment_weights(V[:, 1], yb)
+        Fc = F.reshape(-1)                                          # unwelded corners (the atlas uv is per corner)
+        obj["_skin"] = {"vertex": V[Fc], "texcoord": np.c_[uv[:, 0], 1.0 - uv[:, 1]], "weights": Wv[Fc],
+                        "bind": [sg["origin"] for sg in segs]}
+        obj["_vertex_weights"] = (V, Wv)
         grasp = np.array([cx, 0.5 * (yb[0] + yb[1]), segs[0]["z_top"]])
         hang = D * (nseg - 1) / nseg
     elif mode == "flex":
@@ -162,9 +171,23 @@ def main():
     edge_y = edge_dist * s - (0 - lo[1])                            # table edge beyond the near side of the object
     ee_clear = 0.02
     lift_h = hang + 0.3 * H + 0.15
-    rob = place_robot(grasp, lo, hi, lift_h, edge_y, cfg.get("floor_z"), ee_clear)
-    print(f"[16.1] robot k={rob['k']:.2f} shoulder={np.round(rob['shoulder'], 3).tolist()} "
-          f"reach ok={rob['reachable']}")
+    if cfg.get("robot", "serial") == "airbot_play":
+        import robot_airbot as ra
+        if mode == "articulated":
+            gv = V[(V[:, 1] >= obj["y_bounds"][0]) & (V[:, 1] <= obj["y_bounds"][1])]
+        elif mode == "flex":
+            gv = V[V[:, 1] <= lo[1] + 0.15 * D]
+        else:
+            gv = V
+        rob = ra.plan(obj, gv, lo, hi, hang + 0.05, edge_y)
+        ra.copy_assets(out / "mjcf")
+        print(f"[16.1] robot AIRBOT Play base={np.round(rob['base'], 3).tolist()} grasp={rob['grasp_mode']}: "
+              f"{rob['grasp_reason']}")
+    else:
+        rob = place_robot(grasp, lo, hi, lift_h, edge_y, cfg.get("floor_z"), ee_clear)
+        rob.update(type="serial", grasp_mode="weld")
+        print(f"[16.1] robot k={rob['k']:.2f} shoulder={np.round(rob['shoulder'], 3).tolist()} "
+              f"reach ok={rob['reachable']}")
 
     # ------------------------------------------------------------------ 5. Gaussian binding (object Gaussians -> sim)
     from plyfile import PlyData as _P
@@ -172,15 +195,17 @@ def main():
     G = fr.to_sim(np.stack([g["x"], g["y"], g["z"]], 1).astype(np.float64))
     bind = {"object_gs": Path(inp["object_gs"]).relative_to(run).as_posix(), "n_gaussians": int(len(G)), "mode": mode}
     if mode == "articulated":
-        yb = np.array(obj["y_bounds"])
-        band = 0.04 * D
-        Wt = np.zeros((len(G), len(yb) - 1))
-        for i in range(len(yb) - 1):
-            a_ = np.clip((G[:, 1] - (yb[i] - band)) / (2 * band), 0, 1) if i > 0 else np.ones(len(G))
-            b_ = np.clip(((yb[i + 1] + band) - G[:, 1]) / (2 * band), 0, 1) if i < len(yb) - 2 else np.ones(len(G))
-            Wt[:, i] = np.minimum(a_, b_)
-        Wt /= np.maximum(Wt.sum(1, keepdims=True), 1e-9)
-        bind.update(bodies=[sg["body"] for sg in obj["segments"]], weights=np.round(Wt, 4).tolist())
+        # each Gaussian follows the skin weights of its nearest mesh vertex; Gaussians far from the object surface
+        # (step-8 floaters) are left out of the render (step-8 files are not modified)
+        from scipy.spatial import cKDTree
+        Vv, Wv = obj["_vertex_weights"]
+        dist, idx = cKDTree(Vv).query(G)
+        thr = 0.05 * max(W, D)
+        keep = np.where(dist <= thr)[0]
+        bind.update(bodies=[sg["body"] for sg in obj["segments"]], keep=keep.tolist(),
+                    weights=np.round(Wv[idx[keep]], 4).tolist(), floater_threshold=thr)
+        print(f"[16.1] object Gaussians: {len(keep)}/{len(G)} kept (within {thr:.3f} of the mesh), "
+              f"{len(G) - len(keep)} floaters skipped")
     elif mode == "flex":
         from scipy.spatial import cKDTree
         d, i = cKDTree(np.array(obj["rest_nodes"])).query(G, k=4)
@@ -199,16 +224,28 @@ def main():
         import mujoco
         m = mujoco.MjModel.from_xml_path(str(out / "mjcf" / "scene_simulation.xml"))
         print(f"[16.1] MJCF compiles: nbody={m.nbody} ngeom={m.ngeom} nu={m.nu} neq={m.neq}")
+        if rob["type"] == "airbot_play":                            # joint targets of the waypoints (offline IK)
+            Rd = ra.target_rot(rob["grasp_axis"])
+            q, sol = None, {}
+            for name in ("HOME", "HOVER", "GRASP", "LIFT", "CARRY"):
+                w_rot = 0.02 if name in ("LIFT", "CARRY") else 0.3      # high poses: position first (arm reach)
+                q, ep, er = ra.solve_ik(m, np.array(rob["waypoints"][name]), Rd, q0=q, w_rot=w_rot)
+                sol[name] = {"q": np.round(q, 5).tolist(), "pos_err": round(ep, 4), "rot_err": round(er, 4)}
+                print(f"[16.1] IK {name:8s} pos err {ep * 100:5.2f} cm  rot err {er:.3f}")
+            rob["ik"] = sol
+            rob["reachable"] = bool(sol["GRASP"]["pos_err"] < 0.005)
     except ImportError:
         print("[16.1] mujoco not installed: MJCF written but not checked")
 
     st = {"description": "COLMAP/3DGS world -> MuJoCo Z-up frame of step 16", **fr.to_json(),
           "plane_file": str(plane_file), "plane_normal_world": n.tolist(), "plane_d_world": plane["d"],
           "table_top_height_on_plane": h0, "robot_side_uv": a_uv.tolist(), "nearest_table_edge_scene": edge_dist,
-          "object_id": inp["object_id"], "inputs": {k: (Path(v).relative_to(run).as_posix() if v and Path(v).is_relative_to(run)
+          "object_id": inp["object_id"],
+          "object_color_used": color_used,             # mesh = InstantMesh vertex colours | gs = step-8 Gaussians
+          "inputs":{k: (Path(v).relative_to(run).as_posix() if v and Path(v).is_relative_to(run)
                                                         else (str(v) if v else None))
                                                     for k, v in inp.items() if k not in ("run", "object_id")},
-          "object": {k: v for k, v in obj.items() if k not in ("rest_nodes",)}, "config": cfg}
+          "object": {k: v for k, v in obj.items() if k not in ("rest_nodes",) and not k.startswith("_")}, "config": cfg}
     (out / "sim_transform.json").write_text(json.dumps(st, indent=1), encoding="utf-8")
     (out / "robot.json").write_text(json.dumps({**rob, "cameras": cams}, indent=1), encoding="utf-8")
     (out / "prepare_done.json").write_text(json.dumps({"ok": True, "seconds": round(time.time() - t0, 1),
@@ -217,11 +254,13 @@ def main():
 
 
 # ---------------------------------------------------------------------------------------------------- helpers
-def convex_parts(V, F, max_parts=12):
+def convex_parts(V, F, max_parts=12, threshold=0.08, quiet=False):
     """CoACD convex decomposition (if installed), else 4 quadrant hulls."""
     try:
         import coacd
-        parts = coacd.run_coacd(coacd.Mesh(V, F), threshold=0.08, max_convex_hull=max_parts)
+        if quiet:
+            coacd.set_log_level("error")
+        parts = coacd.run_coacd(coacd.Mesh(V, F), threshold=threshold, max_convex_hull=max_parts)
         return [(np.asarray(v), np.asarray(f)) for v, f in parts]
     except Exception as e:  # noqa: BLE001
         print(f"[16.1] CoACD unavailable ({type(e).__name__}) -> quadrant hulls")
@@ -309,6 +348,8 @@ def build_mjcf(obj, rob, cams, cfg, s):
     k = rob["k"]
     S = lambda x: x * k                                              # noqa: E731  robot dimensions
     sh, base = np.array(rob["shoulder"]), np.array(rob["base"])
+    airbot = rob.get("type") == "airbot_play"
+    grip_body = "link6" if airbot else "robot_gripper"
     turret_z = sh[2] - S(0.08) - base[2]
     col_lo, col_hi = S(0.33), turret_z - S(0.15)
     mass = float(cfg["object_mass"])
@@ -330,18 +371,21 @@ def build_mjcf(obj, rob, cams, cfg, s):
               '<material name="robot_joint" rgba="0.15 0.55 0.88 1" specular="0.5" shininess="0.6"/>',
               '<material name="pad_mat" rgba="0.92 0.36 0.12 1" specular="0.2"/>']
     welds = []
+    skin_xml = ""
     if obj["mode"] == "articulated":
         segs = obj["segments"]
         nseg = len(segs)
         for sg in segs:
-            assets.append(f'<mesh name="{sg["body"]}" file="{sg["mesh"]}" inertia="shell"/>')
+            for h in sg.get("hulls") or [sg["mesh"]]:
+                assets.append(f'<mesh name="{Path(h).stem}" file="{h}"/>')
         seg_len = (obj["bbox_max"][1] - obj["bbox_min"][1]) / nseg
         stiff = 0.4 * (mass / nseg) * 9.81 * seg_len
         body = ""
         for i in reversed(range(nseg)):
             sg = segs[i]
-            geom = (f'<geom name="{sg["body"]}_geom" type="mesh" mesh="{sg["body"]}" material="object_mat" '
-                    f'mass="{mass / nseg:.5f}" group="2" {fric}/>')
+            hl = sg.get("hulls") or [sg["mesh"]]                      # colliders only: the skin is the visual
+            geom = "\n  ".join(f'<geom name="{Path(h).stem}_geom" type="mesh" mesh="{Path(h).stem}" rgba="1 1 1 0" '
+                                f'mass="{mass / nseg / len(hl):.6f}" group="3" {fric}/>' for h in hl)
             if i == 0:
                 body = (f'<body name="{sg["body"]}" pos="{pio.fmt(sg["origin"])}">\n  <freejoint name="object_free"/>\n'
                         f'  {geom}\n{body}</body>\n')
@@ -351,7 +395,17 @@ def build_mjcf(obj, rob, cams, cfg, s):
                         f'  <joint name="fold{i}" type="hinge" axis="1 0 0" range="-1.75 1.75" stiffness="{stiff:.5f}" '
                         f'damping="{0.25 * stiff:.5f}"/>\n  {geom}\n{body}</body>\n')
         obj_xml = body
-        welds.append(f'<weld name="grasp_weld" body1="robot_gripper" body2="{segs[0]["body"]}" active="false" '
+        sk = obj["_skin"]
+        bones = ""
+        for i, sg in enumerate(segs):
+            vid = np.where(sk["weights"][:, i] > 1e-4)[0]
+            bones += (f'  <bone body="{sg["body"]}" bindpos="{pio.fmt(sk["bind"][i])}" bindquat="1 0 0 0" '
+                      f'vertid="{" ".join(map(str, vid))}" vertweight="{pio.fmt(sk["weights"][vid, i], 4)}"/>\n')
+        nv = len(sk["vertex"])
+        skin_xml = ('<deformable>\n<skin name="object_skin" material="object_mat" group="2" '
+                    f'vertex="{pio.fmt(sk["vertex"], 5)}" texcoord="{pio.fmt(sk["texcoord"], 5)}" '
+                    f'face="{" ".join(map(str, range(nv)))}">\n{bones}</skin>\n</deformable>')
+        welds.append(f'<weld name="grasp_weld" body1="{grip_body}" body2="{segs[0]["body"]}" active="false" '
                      f'solref="0.005 1" solimp="0.95 0.99 0.001"/>')
     elif obj["mode"] == "flex":
         nx, ny, nz = obj["grid"]
@@ -360,7 +414,7 @@ def build_mjcf(obj, rob, cams, cfg, s):
                    f'  <contact selfcollide="none" {fric}/>\n'
                    f'  <elasticity young="{cfg["flex_young"]}" poisson="0.12" damping="3.0"/>\n</flexcomp>\n')
         for j in obj["grasp_nodes"]:
-            welds.append(f'<weld name="grasp_weld_{j}" body1="robot_gripper" body2="object_flex_{j}" active="false" '
+            welds.append(f'<weld name="grasp_weld_{j}" body1="{grip_body}" body2="object_flex_{j}" active="false" '
                          f'solref="0.005 1" solimp="0.95 0.99 0.001"/>')
     else:
         assets.append('<mesh name="object_vis" file="object.obj" inertia="shell"/>')
@@ -372,13 +426,13 @@ def build_mjcf(obj, rob, cams, cfg, s):
         obj_xml = (f'<body name="object_body" pos="{pio.fmt(c)}">\n  <freejoint name="object_free"/>\n'
                    f'  <geom name="object_visual" type="mesh" mesh="object_vis" pos="{pio.fmt(-c)}" material="object_mat" '
                    f'contype="0" conaffinity="0" mass="0" group="2"/>\n{geoms}</body>\n')
-        welds.append('<weld name="grasp_weld" body1="robot_gripper" body2="object_body" active="false" '
+        welds.append(f'<weld name="grasp_weld" body1="{grip_body}" body2="object_body" active="false" '
                      'solref="0.005 1" solimp="0.95 0.99 0.001"/>')
 
     cam_xml = "".join(f'<camera name="{n_}" pos="{pio.fmt(c["pos"])}" xyaxes="{pio.fmt(c["xyaxes"])}" fovy="{c["fovy"]:.3f}"/>\n'
                       for n_, c in cams.items())
     nc = 'contype="0" conaffinity="0" group="1"'
-    floor = (f'<geom name="floor_collider" type="plane" pos="0 0 {base[2]:.4f}" size="{3 * ext:.2f} {3 * ext:.2f} 0.05" '
+    floor = (f'<geom name="floor_collider" type="plane" pos="0 0 {float(cfg.get("floor_z") or 0):.4f}" size="{3 * ext:.2f} {3 * ext:.2f} 0.05" '
              f'rgba="0.82 0.82 0.84 1"/>\n' if cfg.get("floor_z") is not None else "")
     robot = f"""<body name="robot_base" pos="{pio.fmt(base)}">
   <geom name="base_chassis" type="box" pos="0 0 {S(0.18):.4f}" size="{S(0.38):.4f} {S(0.32):.4f} {S(0.15):.4f}" material="robot_dark" {nc}/>
@@ -429,6 +483,13 @@ def build_mjcf(obj, rob, cams, cfg, s):
 <position name="act_wrist_yaw" joint="joint_wrist_yaw" kp="{800 * g4:.1f}" kv="{30 * g4:.1f}" ctrlrange="-3.14 3.14"/>
 <position name="act_finger_left" joint="finger_left" kp="{3000 * k ** 3:.1f}" kv="{50 * k ** 3:.1f}" ctrlrange="0 {S(0.16):.4f}"/>
 <position name="act_finger_right" joint="finger_right" kp="{3000 * k ** 3:.1f}" kv="{50 * k ** 3:.1f}" ctrlrange="0 {S(0.16):.4f}"/>"""
+    top = ""
+    if airbot:                                                       # DISCOVERSE AIRBOT Play (robot_airbot.py)
+        robot = (f'<body name="robot_base" pos="{pio.fmt(base)}" euler="{pio.fmt(rob["base_euler"])}">\n'
+                 f'  <include file="airbot_play/airbot_play.xml"/>\n</body>\n')
+        act = '<include file="airbot_play/airbot_play_control.xml"/>'
+        top = ('<include file="airbot_play/airbot_play_dependencies.xml"/>\n'
+               '<include file="airbot_play/airbot_play_appendix.xml"/>')
     ind = lambda t, n_: "\n".join(" " * n_ + ln if ln else ln for ln in t.splitlines())  # noqa: E731
     return f"""<mujoco model="safe_gs_step16">
   <compiler angle="radian" meshdir="assets" texturedir="assets" autolimits="true"/>
@@ -439,6 +500,7 @@ def build_mjcf(obj, rob, cams, cfg, s):
     <global offwidth="{W}" offheight="{Hh}"/>
     <map znear="0.005" zfar="200"/>
   </visual>
+{ind(top, 2)}
   <asset>
 {ind(chr(10).join(assets), 4)}
   </asset>
@@ -453,6 +515,7 @@ def build_mjcf(obj, rob, cams, cfg, s):
 {ind(obj_xml, 4)}
 {ind(robot, 4)}
   </worldbody>
+{ind(skin_xml, 2)}
   <equality>
 {ind(chr(10).join(welds), 4)}
   </equality>

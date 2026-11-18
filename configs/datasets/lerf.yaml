@@ -30,7 +30,9 @@ scenes:
     data_subdir: LERF Datasets/teatime
     images_registered: 177          # 3 of 180 frames not registered (frame_00148/00155/00156)
     physics:                        # Step 16 (src/tools_physics, defaults in physics_io.PHYS_DEFAULTS)
-      floor_z: -1.95                # floor 1.95 scene units under the table top (teatime_napkin step14 sim)
+      robot: airbot_play            # DISCOVERSE AIRBOT Play (metric) | serial (old scaled arm)
+      sim_scale: 0.385              # metres per scene unit: table top 1.95 units above the floor ~ 0.75 m table
+      floor_z: -0.75                # sim units (= metres here); was -1.95 with sim_scale 1
       mode: articulated             # napkin = 3 hinged segments; flex = <flexcomp>; rigid = CoACD hulls
     objects:
       napkin:

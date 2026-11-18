@@ -30,12 +30,12 @@ PHYS_DEFAULTS = {
     "mode": "articulated",        # articulated (3 hinged rigid segments, cloth-like) | flex (<flexcomp>) | rigid
     "sim_scale": 1.0,             # sim units per scene unit (scene units are NOT metres; teatime: 1 unit ~ 0.38 m)
     "object_mass": 0.065,
-    "n_segments": 3,              # articulated mode
+    "n_segments": 8,              # articulated mode (hinged rigid strips + one continuous <skin> for the visual)
     "flex_grid": [6, 6, 2],       # flex mode
     "flex_young": 600.0,
     "table_tris": 150000,
     "object_tris": 8000,
-    "object_color": "gs",         # gs = bake step-8 Gaussians | mesh = InstantMesh vertex colours
+    "object_color": "mesh",       # mesh = InstantMesh vertex colours (step 14/15) | gs = bake step-8 Gaussians
     "floor_z": None,              # sim z of the floor (robot stands on it); None = pedestal of fixed height
     "gap": 0.001,                 # step-15 clearance (to find the table top under the object)
     "fps": 30,
@@ -238,8 +238,27 @@ def decimate(V, F, target, colors=None):
     m.remove_duplicated_vertices()
     m.remove_unreferenced_vertices()
     m.compute_vertex_normals()
-    cols = np.asarray(m.vertex_colors) if colors is not None else None
-    return np.asarray(m.vertices), np.asarray(m.triangles).astype(np.int64), np.asarray(m.vertex_normals), cols
+    V_out = np.asarray(m.vertices)
+    if colors is not None:
+        cols = np.asarray(m.vertex_colors)
+        if len(cols) != len(V_out):
+            cols = knn_colors(V_out, V, np.asarray(colors, float), k=3)
+    else:
+        cols = None
+    return V_out, np.asarray(m.triangles).astype(np.int64), np.asarray(m.vertex_normals), cols
+
+
+def segment_weights(y, y_bounds):
+    """Smooth skinning weights of points along the strip axis: hat functions centred on the segment centres
+    (partition of unity, 1 beyond the end centres) -> [N, n_segments]."""
+    yb = np.asarray(y_bounds, float)
+    yc = 0.5 * (yb[:-1] + yb[1:])
+    W = np.zeros((len(y), len(yc)))
+    for i in range(len(yc)):
+        e = np.zeros(len(yc))
+        e[i] = 1.0
+        W[:, i] = np.interp(y, yc, e)
+    return W
 
 
 def look_at_xyaxes(pos, target, up=(0, 0, 1)):

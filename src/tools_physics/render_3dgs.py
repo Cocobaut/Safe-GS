@@ -233,6 +233,9 @@ def main():
     print(f"[16.3] background {len(keep)} Gaussians rendered once ({W}x{H}, {dev}) in {time.time() - t0:.0f}s")
 
     obj = load_ply(run / bind["object_gs"], device=dev)
+    if bind.get("keep") is not None:                                # floaters left out at 16.1 (step-8 file untouched)
+        ki = torch.tensor(bind["keep"], device=dev)
+        obj = {k: (v[ki] if torch.is_tensor(v) else v) for k, v in obj.items()}
     deform = ObjectDeformer(obj, bind, traj, fr)
 
     m = mujoco.MjModel.from_xml_path(str(out / "mjcf" / "scene_simulation.xml"))
@@ -241,6 +244,7 @@ def main():
     opt_robot = mujoco.MjvOption()
     opt_robot.geomgroup[:] = 0
     opt_robot.geomgroup[1] = 1
+    opt_robot.skingroup[:] = 0                                      # the object skin is not part of the robot layer
     s = float(st["sim_scale"])
 
     vids = out / "videos"

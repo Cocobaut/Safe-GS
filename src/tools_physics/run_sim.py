@@ -35,7 +35,16 @@ class Scene:
         self.data = mujoco.MjData(self.model)
         m = self.model
         nid = lambda t, n: mujoco.mj_name2id(m, t, n)  # noqa: E731
-        self.grip = nid(mujoco.mjtObj.mjOBJ_BODY, "robot_gripper")
+        self.airbot = self.rob.get("type") == "airbot_play"
+        self.grasp_mode = self.rob.get("grasp_mode", "weld")
+        self.grip = nid(mujoco.mjtObj.mjOBJ_BODY, "link6" if self.airbot else "robot_gripper")
+        if self.airbot:
+            jn = [nid(mujoco.mjtObj.mjOBJ_JOINT, f"joint{i}") for i in range(1, 7)]
+            self.arm_qadr = np.array([m.jnt_qposadr[j] for j in jn])
+            self.qwp = {k: np.array(v["q"]) for k, v in self.rob["ik"].items()}
+            for f_ in ("endleft", "endright"):
+                j = nid(mujoco.mjtObj.mjOBJ_JOINT, f_)
+                setattr(self, f"{f_}_qadr", m.jnt_qposadr[j])
         self.welds = [i for i in range(m.neq) if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_EQUALITY, i) or "").startswith("grasp_weld")]
         if self.mode == "articulated":
             self.bodies = [s["body"] for s in self.st["object"]["segments"]]
@@ -58,6 +67,7 @@ class Scene:
         wp["HOME"] = wp["HOVER"] + np.array([0, -0.25 * R, 0.15 * R])
         self.wp = wp
         self.locked = False
+        self.grip_ref = None
 
     def _is_desc(self, b, root):
         while b > 0:
@@ -103,9 +113,43 @@ class Scene:
             d.eq_active[e] = int(on)
         self.locked = on
 
+    def reset(self):
+        mj, m, d = self.mj, self.model, self.data
+        mj.mj_resetData(m, d)
+        if self.airbot:                                              # start at the HOME pose, gripper open
+            d.qpos[self.arm_qadr] = self.qwp["HOME"]
+            d.qpos[self.endleft_qadr], d.qpos[self.endright_qadr] = self.rob["jaw_open"], -self.rob["jaw_open"]
+            d.ctrl[:6] = self.qwp["HOME"]
+            d.ctrl[6] = self.rob["jaw_open"]
+        self.lock(False)
+        mj.mj_forward(m, d)
+
+    def control_airbot(self, name, a, s):
+        q, op, cl = self.qwp, self.rob["jaw_open"], self.rob["jaw_closed"]
+        tgt, jaw = {"SETTLE": (q["HOME"], op),
+                    "APPROACH": ((1 - s) * q["HOME"] + s * q["HOVER"], op),
+                    "DESCEND": ((1 - s) * q["HOVER"] + s * q["GRASP"], op),
+                    "GRASP": (q["GRASP"], op + (cl - op) * min(1.0, a / 0.6)),
+                    "LIFT": ((1 - s) * q["GRASP"] + s * q["LIFT"], cl),
+                    "CARRY": ((1 - s) * q["LIFT"] + s * q["CARRY"], cl),
+                    "HOLD": (q["CARRY"], cl)}[name]
+        if name == "GRASP" and a >= 0.7 and self.grasp_mode == "friction" and self.grip_ref is None:
+            self.grip_ref = self._grip_obj_dist()                    # friction grasp: no weld, only measure slip
+        if name == "GRASP" and a >= 0.7 and self.grasp_mode == "weld" and not self.locked:
+            self.lock(True)
+        self.data.ctrl[:6] = tgt
+        self.data.ctrl[6] = jaw
+        return name
+
+    def _grip_obj_dist(self):
+        p = self.data.xpos[self.body_ids[0]] if self.body_ids else self.data.flexvert_xpos.mean(0)
+        return float(np.linalg.norm(p - self.data.xpos[self.grip]))
+
     def control(self, t):
         name, a = self.phase_at(t)
         s = 0.5 * (1 - np.cos(np.pi * a))
+        if self.airbot:
+            return self.control_airbot(name, a, s)
         w, jc = self.wp, self.rob["jaw_closed"]
         tgt, jaw = {"SETTLE": (w["HOME"], 0.0),
                     "APPROACH": ((1 - s) * w["HOME"] + s * w["HOVER"], 0.0),
@@ -152,11 +196,38 @@ def draw_hud(img, lines):
     return img
 
 
+def friction_trial(sc: Scene):
+    """Simulate up to the end of LIFT with the friction grasp only. -> object lift (com z rise after GRASP)."""
+    mj, m, d = sc.mj, sc.model, sc.data
+    sc.reset()
+    t_lift_end = float(sc.t_end[[p for p, _ in sc.phases].index("LIFT")])
+    z0 = None
+    while d.time < t_lift_end:
+        ph = sc.control(d.time)
+        mj.mj_step(m, d)
+        if ph == "GRASP":
+            z0 = float(sc.object_com()[2])
+        if not np.isfinite(d.qpos).all():
+            return float("nan")
+    return float(sc.object_com()[2] - z0) if z0 is not None else 0.0
+
+
 def run_headless(sc: Scene, video=True):
     import cv2
     mj, m, d = sc.mj, sc.model, sc.data
-    mj.mj_resetData(m, d)
-    mj.mj_forward(m, d)
+    trial = None
+    if sc.airbot and sc.grasp_mode == "friction":                 # geometry says it fits: check that it really holds
+        trial = friction_trial(sc)
+        need = 0.3 * sc.rob["lift_height"]
+        ok = np.isfinite(trial) and trial >= need
+        print(f"[16.2] friction grasp trial: object lifted {trial:.3f} (need {need:.3f}) -> "
+              f"{'friction grasp kept' if ok else 'falls back to the weld lock'}")
+        if not ok:
+            sc.grasp_mode = "weld"
+            sc.rob["grasp_reason"] = (f"friction trial failed: the closed gripper lifted the object {trial:.3f} "
+                                      f"(< {need:.3f}); pads slip on the rigid strip colliders")
+        sc.grip_ref = None
+    sc.reset()
     fps = int(sc.st["config"].get("fps", 30))
     vids = sc.out / "videos"
     vids.mkdir(exist_ok=True)
@@ -244,8 +315,19 @@ def run_headless(sc: Scene, video=True):
         "grasp_success": bool(not nan and final_lift > 0.5 * lift_h),
         "max_fold_angle_deg": round(float(np.degrees(max_fold)), 2) if sc.fold_qadr else None,
         "robot_reachable": sc.rob["reachable"], "robot_scale_k": sc.rob["k"],
-        "grasp": "weld lock activated at 70% of the GRASP phase (fingers close, then the object is attached)",
+        "robot": sc.rob.get("type", "serial"), "grasp_mode": sc.grasp_mode,
+        "grasp": ("friction only: the closed gripper holds the object through contacts" if sc.grasp_mode == "friction"
+                  else "weld lock activated at 70% of the GRASP phase (fingers close, then the object is attached)"),
     }
+    if sc.airbot:
+        report["friction_trial_lift"] = None if trial is None else round(trial, 5)
+        report["pinch_widths"] = sc.rob["pinch_widths"]
+        report["gripper_max_pinch"] = sc.rob["max_pinch"]
+        report["grasp_reason"] = sc.rob.get("grasp_reason")
+        report["wall_angle_deg"] = sc.rob.get("wall_angle_deg")
+        report["ik_errors_cm"] = {k: round(v["pos_err"] * 100, 2) for k, v in sc.rob["ik"].items()}
+        if sc.grasp_mode == "friction" and sc.grip_ref is not None:
+            report["grasp_slip"] = round(abs(sc._grip_obj_dist() - sc.grip_ref), 5)
     if m.nflexvert:
         rest = np.array(json.loads((sc.out / "object_gs_binding.json").read_text())["rest_nodes"])
         report["flex_node_order_max_err"] = round(float(np.abs(np.array(rec["flex"][0]) - rest).max()), 6)
@@ -257,8 +339,7 @@ def run_headless(sc: Scene, video=True):
 def run_viewer(sc: Scene, manual=False):
     import mujoco.viewer
     mj, m, d = sc.mj, sc.model, sc.data
-    mj.mj_resetData(m, d)
-    mj.mj_forward(m, d)
+    sc.reset()
     print("viewer: mouse = rotate/pan/zoom, Space = pause, Backspace = reset"
           + (" | manual: drag the actuators in the Control panel (fingers > 60% closed = grasp)" if manual else ""))
     with mujoco.viewer.launch_passive(m, d) as v:
@@ -269,12 +350,12 @@ def run_viewer(sc: Scene, manual=False):
             t0 = time.time()
             if not manual:
                 if d.time > sc.duration + 1.0:
-                    mj.mj_resetData(m, d)
-                    mj.mj_forward(m, d)
-                    sc.lock(False)
+                    sc.reset()
                 sc.control(d.time)
             else:
-                closed = min(d.ctrl[5], d.ctrl[6]) >= 0.6 * sc.rob["jaw_closed"]
+                closed = (d.ctrl[6] <= 0.01 if sc.airbot else min(d.ctrl[5], d.ctrl[6]) >= 0.6 * sc.rob["jaw_closed"])
+                if sc.grasp_mode == "friction":
+                    closed = sc.locked
                 if closed and not sc.locked:
                     sc.lock(True)
                 elif not closed and sc.locked:

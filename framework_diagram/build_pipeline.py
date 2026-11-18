@@ -41,6 +41,7 @@ S = {  # step folders of the run
     5: "step5_mask2d_hqsam", 6: "step6_sync_mask", 7: "step7_id_distill", 8: "step8_removal_virtual_cam",
     9: "step9_inpaint_masks_samt", 10: "step10_inpaint2d_lama", 11: "step11_inpaint_3dgs_come_loss",
     12: "step12_render", 13: "step13_come_mesh", 14: "step14_instantmesh", 15: "step15_object_mesh_merge",
+    16: "step16_physics_engine",
 }
 
 
@@ -76,6 +77,19 @@ def copies():
         "step14_2_orbit_rgb.png": s14 / "2_orbit_video/frames/000.png",
         "step14_2_orbit_reliability.jpg": s14 / "2_orbit_video/frames/000_rel.jpg",
         "step14_3_selected_views.jpg": s14 / "3_view_selection/selected_views_k6.jpg",
+        **({
+            "step16_1_settle_z0.png": d(16) / "videos/keyframe_1_settle.png",
+            "step16_1_table_tex.png": d(16) / "mjcf/assets/table_tex.png",
+            "step16_1_object_tex.png": d(16) / "mjcf/assets/object_tex.png",
+            "step16_2_approach.png": d(16) / "videos/keyframe_2_approach.png",
+            "step16_2_descend.png": d(16) / "videos/keyframe_3_descend.png",
+            "step16_2_grasp.png": d(16) / "videos/keyframe_4_grasp.png",
+            "step16_2_lift.png": d(16) / "videos/keyframe_5_lift.png",
+            "step16_2_carry.png": d(16) / "videos/keyframe_6_carry.png",
+            "step16_2_hold.png": d(16) / "videos/keyframe_7_hold.png",
+            "step16_3_3dgs_first.png": d(16) / "videos/frame_3dgs_first.png",
+            "step16_3_3dgs_lift.png": d(16) / "videos/frame_3dgs_lift.png",
+        } if d(16).exists() else {}),
     }
 
 
@@ -338,6 +352,56 @@ def layout():
     edge("objg", "orbit"); edge("orbit", "vsel"); edge("vsel", "lrm"); edge("lrm", "pick"); edge("pick", "place")
     edge("place", "out")
     edge("g3did", "objg", f"ID {tid} Gaussians"); edge("table", "place", "table")
+
+    # ---------------- stage 6 (step 16: physics engine + 3DGS render)
+    if d(16).exists():
+        s16 = js(f"{S[16]}/final_physics_report.json")
+        node("s6", 20, 1690, 2650, 320, "stage",
+             "Stage 6 – Physics simulation & 3DGS rendering (MuJoCo + AIRBOT Play, step 16)")
+        node("p16_1a", 40, 1740, 200, 55, "new",
+             B.format("16.1a Z-up Alignment", f"table plane z = 0, scale {f2(s16.get('sim_scale'), 3)} (step 16.1)"))
+        node("i_p16_1a", 65, 1815, TW, TH, "img:step16_1_settle_z0.png")
+        # object colour source actually used by 16.1 (object_color_used; older runs: the configured object_color)
+        st16 = js(f"{S[16]}/sim_transform.json")
+        oc = st16.get("object_color_used") or (st16.get("config") or {}).get("object_color", "gs")
+        node("p16_1b", 280, 1740, 220, 55, "new",
+             B.format("16.1b Texture Atlas Baking",
+                      ("InstantMesh vertex colour" if oc == "mesh" else "Step 8 3DGS colour")
+                      + " (obj) + Step 11 3DGS colour (table)"))
+        node("i_p16_ttex", 280, 1815, 105, 105, "img:step16_1_table_tex.png")
+        node("i_p16_otex", 395, 1815, 105, 105, "img:step16_1_object_tex.png")
+        node("p16_1c", 540, 1740, 210, 55, "new",
+             B.format("16.1c Physics Rig & Colliders", "rigid: CoACD hulls | cloth: 8 hinged strips"))
+        node("p16_2a", 790, 1740, 280, 55, "proc",
+             B.format("16.2a Grasp Plan & DLS IK", "hull section (friction / weld) + 6-DoF IK (err 0 cm)"))
+        node("i_p16_kf2", 775, 1815, TW, TH, "img:step16_2_approach.png")
+        node("i_p16_kf3", 935, 1815, TW, TH, "img:step16_2_descend.png")
+        node("p16_2b", 1120, 1740, 280, 55, "proc",
+             B.format("16.2b Grasp & Object Lift",
+                      f"friction/weld grasp, lift +{f2(100 * (s16.get('final_object_lift') or 0), 1)} cm "
+                      f"(drape {f2(s16.get('max_fold_angle_deg'), 1)}°)"))
+        node("i_p16_kf4", 1105, 1815, TW, TH, "img:step16_2_grasp.png")
+        node("i_p16_kf5", 1265, 1815, TW, TH, "img:step16_2_lift.png")
+        node("p16_2c", 1450, 1740, 280, 55, "proc",
+             B.format("16.2c Carry & Hold",
+                      f"table pen. {f2(1000 * (s16.get('max_table_penetration') or 0), 1)} mm, "
+                      f"{s16.get('frames', '?')} frames @ 30 fps"))
+        node("i_p16_kf6", 1435, 1815, TW, TH, "img:step16_2_carry.png")
+        node("i_p16_kf7", 1595, 1815, TW, TH, "img:step16_2_hold.png")
+        node("p16_traj", 1775, 1740, 190, 55, "data",
+             f"trajectory.npz ({s16.get('frames', '?')} frames)<br>"
+             "<font style='font-size:10px'>8 body poses (p_b, q_b) + qpos[6]</font>")
+        node("p16_3", 2010, 1740, 290, 55, "new",
+             B.format("16.3 Synchronised 3DGS Render", "LBS deform ID 44 + Step 11 table + robot (frame_00127)"))
+        node("i_p16_gs0", 1995, 1815, TW, TH, "img:step16_3_3dgs_first.png")
+        node("i_p16_gslift", 2155, 1815, TW, TH, "img:step16_3_3dgs_lift.png")
+        node("p16_out", 2350, 1740, 260, 55, "data",
+             "render_3dgs_synced.mp4<br>comparison_mujoco_vs_3dgs.mp4")
+        edge("out", "p16_1a", "placed mesh"); edge("table", "p16_1b", "table")
+        edge("p16_1a", "p16_1b"); edge("p16_1b", "p16_1c"); edge("p16_1c", "p16_2a")
+        edge("p16_2a", "p16_2b"); edge("p16_2b", "p16_2c"); edge("p16_2c", "p16_traj")
+        edge("p16_traj", "p16_3"); edge("p16_3", "p16_out")
+        edge("objg", "p16_3", f"ID {tid} 3DGS"); edge("final", "p16_3", "inpainted 3DGS")
 
 
 STYLE = {
