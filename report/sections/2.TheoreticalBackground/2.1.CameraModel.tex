@@ -1,0 +1,89 @@
+\section{Camera Model}
+
+As illustrated in~\Cref{fig:pinhole_cam}, a pinhole camera consists of two screens: the first contains a small aperture that allows specific light rays from an object to pass through and project an inverted image onto the second. This system can be represented geometrically as shown in~\Cref{fig:pinhole_camv2}, where a 3D point $M$ is projected onto a retinal plane $X$ at point $m$, defined by the intersection of line segment $(C, M)$ with $X$. Here $C$ is the optical center, located at focal distance $J$ from $X$. The optical axis is the line through $C$ that meets $X$ perpendicularly at point $c$, and as shown in~\Cref{fig:camera_plan}, the focal plane $F$ passes through $C$ parallel to $X$.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.6\linewidth]{images//background//camera_model/pinhole_cam.png}
+    \caption{Image formation in a pinhole camera.}
+    \label{fig:pinhole_cam}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{images//background//camera_model/pinhole_camv2.png}
+    \caption{The pinhole camera model.}
+    \label{fig:pinhole_camv2}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{images//background//camera_model/camera_plan.png}
+    \caption{The optical axis, focal plane, and retinal plane.}
+    \label{fig:camera_plan}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.65\linewidth]{images//background//camera_model/coordinate_system.png}
+    \caption{The coordinate system.}
+    \label{fig:coordinate_system}
+\end{figure}
+
+\subsection{The Perspective Projection Matrix}
+Following~\Cref{fig:coordinate_system}, we use the camera's standard coordinate system $(C, x, y, z)$ for 3D space and $(c, u, v)$ for the retinal plane. The mapping between 3D and 2D coordinates is given by:
+\begin{equation}
+\frac{-f}{z} = \frac{u}{x} = \frac{v}{y}
+\label{eq:2.1.1/coord_relation}
+\end{equation}
+which can be rewritten linearly in homogeneous coordinates as:
+\begin{equation}
+\begin{bmatrix}
+U \\ V \\ S
+\end{bmatrix}
+=
+\begin{bmatrix}
+-f & 0 & 0 & 0 \\
+0 & -f & 0 & 0 \\
+0 & 0 & 1 & 0
+\end{bmatrix}
+\begin{bmatrix}
+x \\ y \\ z \\ 1
+\end{bmatrix}
+\label{eq:2.1.1/linear_rewrite}
+\end{equation}
+with $u = U/S$ and $v = V/S$ when $S \neq 0$. The camera thus performs a linear projective transformation from $P^3$ to $P^2$, which we write compactly as:
+\begin{equation}
+\mathbf{m} = \mathbf{P}\mathbf{M}
+\label{eq:2.1.1/short_form}
+\end{equation}
+where $\mathbf{m} = [U, V, S]^T$, $\mathbf{M} = [x, y, z, 1]^T$, and $\mathbf{P}$ is the $3 \times 4$ projection matrix from~\Cref{eq:2.1.1/linear_rewrite}.
+
+\subsection{The Intrinsic Parameters and the Normalized Camera}
+In practice, image coordinates are not centered at the optical-axis intersection $c$ and may use different units along each axis depending on the sensor hardware. We therefore shift the origin to a corner point $c_n$ and rescale the axes. For any pixel $m$:
+\begin{equation}
+\overrightarrow{c_n m} = \overrightarrow{c_n c} + \overrightarrow{cm}
+\label{eq:2.1.2/vector_sum}
+\end{equation}
+Letting $\overrightarrow{cm} = u_{old}\vec{i} + v_{old}\vec{j}$ and relating the original basis $(\vec{i}, \vec{j})$ to the new basis $(\vec{I}, \vec{J})$ via $\vec{i} = s\vec{I}$, $\vec{j} = s\vec{J}$, the per-axis scaling becomes:
+\begin{equation}
+\mathbf{s} = \begin{bmatrix}
+k_u & 0 \\
+0 & k_v
+\end{bmatrix}
+\label{eq:2.1.2/scaling_s}
+\end{equation}
+Denoting $\overrightarrow{c_n c}$ as $t$ in the new frame,~\Cref{eq:2.1.2/vector_sum} becomes $\mathbf{m_{new}} = \mathbf{H}\mathbf{m_{old}}$ in projective coordinates, with
+\begin{equation}
+\mathbf{H} = \begin{bmatrix}
+s & t \\
+0^T_2 & 1
+\end{bmatrix}
+\label{eq:2.1.2/matrix_h}
+\end{equation}
+Combining $P_{new} = H P_{old}$ and assuming the world frame coincides with the camera frame, the projection matrix takes its general form:
+\begin{equation}
+\mathbf{P} = \begin{bmatrix}
+-f k_u & 0 & u_0 & 0 \\
+0 & -f k_v & v_0 & 0 \\
+0 & 0 & 1 & 0
+\end{bmatrix}
+\label{eq:2.1.2/matrix_p_general}
+\end{equation}

@@ -1,0 +1,126 @@
+{
+  "_comment": "figurines v3: nhu v2 (mask SAM 3 v2, hull ratio, ty le rubik) + S3_label.vote_norm present (ti le phieu theo view co nhan vat; v2 vit mu do 84 %% / tho 57 %% / vit vang 44 %% Gaussian ngoai khung do prompt chung thang phieu)",
+  "scene": "figurines",
+  "run_name": "v7_fig",
+  "S0_colmap": {
+    "_comment": "Dùng lại kết quả modal_come.py::colmap_teatime (COLMAP 3.11.1 CUDA, đúng lệnh convert.py, PINHOLE).",
+    "camera": "PINHOLE"
+  },
+  "S1_masks": {
+    "_comment": "SAM 3 thich nghi (modal_sam3.py::adaptive_scene, prompt configs/sam3/figurines_prompts.json) + hull tools/mask_hull.py (--adaptive_min_views 1 --soft_empty_weight 0.0 --clean_3d 1 --sfm_anchor 1).",
+    "source": "sam3_text",
+    "labels_dir": "figurines/sam3_masks_adaptive_v2/labels",
+    "hull_rel": "mask_hull_sam3_adap_v2",
+    "mold_tag": "m7_fig",
+    "s3c_tag": "r1_fig_v7",
+    "protect_matter": 1
+  },
+  "S2_come": {
+    "_comment": "Dùng lại modal_come.py::train_teatime (CoMe, cờ run_tnt/run_scn, 30k iter).",
+    "iterations": 30000
+  },
+  "S3_label": {
+    "_comment": "Gán Gaussian cho vật bằng vote theo đóng góp render (gradient theo màu, như paper Gradient-Driven / FlashSplat). Nhóm vật = danh sách ID mask; merge_graph đề xuất gộp ID theo đồng xuất hiện 3D. v3: nhãn SAM 3, tắt merge_graph (ID SAM 3 đã gộp sẵn, không có objects.json).",
+    "objects": {
+      "plastic_box_of_candy": [
+        20
+      ],
+      "camera": [
+        30
+      ],
+      "candy_bag": [
+        50
+      ],
+      "green_apple": [
+        60
+      ],
+      "yellow_rubber_duck": [
+        70
+      ],
+      "porcelain_hand": [
+        80
+      ],
+      "yellow_dog_toy": [
+        90
+      ],
+      "blue_elephant_toy": [
+        100
+      ],
+      "green_toy_chair": [
+        110
+      ],
+      "red_toy_chair": [
+        120
+      ],
+      "play_doh_can": [
+        130
+      ],
+      "rubik_s_cube": [
+        140
+      ],
+      "cat_figurine": [
+        150
+      ],
+      "pumpkin": [
+        160
+      ],
+      "red_apple": [
+        170
+      ],
+      "rubber_duck_with_red_hat": [
+        180
+      ],
+      "rabbit_figurine": [
+        190
+      ],
+      "waldo_figurine": [
+        200
+      ]
+    },
+    "support": {
+      "ban": [
+        10
+      ]
+    },
+    "assign_ratio": 0.5,
+    "min_total_weight": 0.0001,
+    "view_stride": 1,
+    "merge_graph": {
+      "enabled": false,
+      "view_stride": 3,
+      "min_frames_visible": 20,
+      "share": 0.3,
+      "overlap": 0.5,
+      "auto_merge_objects": true
+    },
+    "interior_knn": {
+      "enabled": true,
+      "k": 8,
+      "radius_scale": 3.0
+    },
+    "preview_frames": [
+      "frame_00001",
+      "frame_00075",
+      "frame_00150",
+      "frame_00225"
+    ],
+    "vote_norm": "fg_present_hull",
+    "hull_gate_vox": 2.5
+  },
+  "S5_objects": {
+    "_comment": "v1: xuất Gaussian từng vật + vết tiếp xúc trên mặt bàn (đóng đáy làm ở S6). Nâng cấp: SAM 3D Objects (cần quyền HF facebook/sam-3d-objects).",
+    "completion": "plane_cap"
+  },
+  "S6_mesh": {
+    "_comment": "Mesh vật: marching cubes mức 0.5 trên trường opacity GOF của riêng vật -> cắt theo mặt bàn + đóng nắp -> CoACD. Nền: bàn = hộp, sàn = mặt phẳng. Scale về mét theo chiều cao bàn.",
+    "table_height_m": 0.75,
+    "grid_res": 128,
+    "coacd_threshold": 0.05,
+    "cut_offset": 0.0,
+    "scale_reference": {
+      "object": "rubik_s_cube",
+      "size_m": 0.057,
+      "_comment": "Rubik 3x3 chuan canh 5.7 cm; opt-in, teatime khong dung"
+    }
+  }
+}

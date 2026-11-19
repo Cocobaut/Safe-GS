@@ -1,0 +1,126 @@
+\section{Experiments}
+\textbf{Design Architecture.} We introduce two variants of MonoDSSMs based on the pipeline outlined in \Cref{fig:MonoDSSMs_arch}. MonoDSSMs-M utilizes our proposed CrossMamba module for feature fusion within the Mamba-based encoder-decoder architecture (\Cref{fig:DepthAwareMamba}a). Meanwhile, MonoDSSMs-A leverages CrossAttention~\cite{attention} as the fusion module in the decoder. We will compare the performance of these two models against previous works.
+
+\subsection{Quantitative Results} \label{sec:quantitative_results}
+\begin{table*}[tb]
+    \caption{\textbf{Detection performance of Car category on the KITTI 3D dataset.} \textbf{\textcolor{red}{Red}} numbers indicates the best results for specific metrics, while \textbf{\textcolor{blue}{blue}} denotes the second-best ones. All FPS values were obtained through individual speed tests conducted on each model using a single NVIDIA GeForce RTX 3090 GPU.}
+    \label{tab:result}
+    \centering
+    \small
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{l|c|ccc|ccc|ccc}  
+        \hline 
+        \multicolumn{1}{l|}{\multirow{2}{*}{Method}} &
+        \multicolumn{1}{c|}{\multirow{2}{*}{\hspace{0.05cm} FPS \hspace{0.05cm}}} & \multicolumn{3}{c|}{Test, $AP_{3D}$} &  \multicolumn{3}{c|}{Test, $AP_{BEV}$} &
+        \multicolumn{3}{c}{Val, $AP_{3D}$}\\ \cline{3-11}  & & Easy  & Mod. & Hard & Easy & Mod.  & Hard  & Easy & Mod.  & Hard  \\ \hline \hline
+        SMOKE~\cite{SMOKE} & 17.6 & 14.03 & 9.76 & 7.84 & 20.83 & 14.49 & 12.75 & 14.76 & 12.85 &  11.50 \\
+        MonoPair~\cite{MonoPair} & \_ & 13.04 & 9.99 & 8.65 & 19.28 & 14.83 & 12.89 & 16.28 & 12.30 & 10.42\\
+        RTM3D~\cite{RTM3D} & 23.3 & 13.61 & 10.09 & 8.18 & \_ & \_ & \_ & 19.47 & 16.29  & 15.57\\
+        Kinematic3D~\cite{Kinematic3D} & 15.6 & 19.07 & 12.72 & 9.17 & 26.69 & 17.52 & 13.10 & 19.76 & 14.10 &  10.47\\
+        MonoRUn~\cite{MonoRUn} & 20.2 & 19.65 & 12.30 & 10.58 & 27.94 & 17.34 & 15.24 & 20.02 & 14.65 & 12.61\\
+        CaDDN~\cite{CaDDN} & \_ & 19.17 & 13.41 & 11.46 & 27.94 & 18.91 & 17.19 & 23.57 & 16.31 & 13.84\\  PGD~\cite{PGD} & 23.9 & 19.05 & 11.76 & 9.39 & 26.89 & 16.51 & 13.49 & 19.27 & 13.23 & 10.65\\        MonoDLE~\cite{MonoDLE} & 25.0 & 17.23 & 12.26 & 10.29 & 24.79 & 18.89 & 16.00 & 17.45 & 13.66 & 11.68\\
+        MonoRCNN~\cite{MonoRCNN} & 24.7 & 18.36 & 12.65 & 10.03 & 25.48 & 18.11 & 14.10 & 16.61 & 13.19 & 10.65\\
+        MonoFlex~\cite{MonoFlex} & 27.9 & 19.94 & 13.89 & 12.07 & 28.23 & 19.75 & 16.89 & 23.64 & 17.51 & 14.83\\
+        GUPNet~\cite{GUPNet} & 28.7 & 20.11 & 14.20 & 11.77 & \_ & \_ & \_ & 22.76 & 16.46 & 13.72\\
+        MonoGround~\cite{MonoGround} & 28.2 & 21.37 & 14.36 & \textbf{\textcolor{blue}{12.62}} &  \textbf{\textcolor{red}{30.07}} & \textbf{\textcolor{red}{20.47}} &  \textbf{\textcolor{red}{17.74}} & 25.24 &  18.69 &  15.58\\
+        MonoDTR~\cite{MonoDTR} & 27.0 & \textbf{\textcolor{red}{21.99}} & \textbf{\textcolor{red}{15.39}} &  \textbf{\textcolor{red}{12.73}} & 28.59 & \textbf{\textcolor{blue}{20.38}} & \textbf{\textcolor{blue}{17.14}} & 24.52 &  18.57 & 15.51\\
+        \hline\hline
+        MonoDSSMs-M& \textbf{\textcolor{blue}{34.5}} & 19.80 & 14.15 & 11.56 & 28.29 & 19.59 & 16.34 & \textbf{\textcolor{red}{27.10}} & \textbf{\textcolor{red}{19.10}} & \textbf{\textcolor{red}{15.84}}\\
+        MonoDSSMs-A & \textbf{\textcolor{red}{34.7}} & \textbf{\textcolor{blue}{21.47}} & \textbf{\textcolor{blue}{14.55}} & 11.78 & \textbf{\textcolor{blue}{28.84}} & 19.54 & 16.30 & \textbf{\textcolor{blue}{26.62}} & \textbf{\textcolor{blue}{18.95}} & \textbf{\textcolor{blue}{15.61}}\\
+    \end{tabular}}
+\end{table*}
+\textbf{Experiment on the Car category of KITTI 3D test set.} As shown in \Cref{tab:result}, we compare our MonoDSSMs-M and MonoDSSMs-A with several state-of-the-art monocular 3D object detection methods on the KITTI test set. It can be observed that our approach achieves competitive performance compared with other methods. However, our proposed model does not achieve outstanding results compared with the baseline, this can be explained by the trade-off between accuracy and efficiency. Our setting MonoDSSMs-A only reduces about 2.4\%, 5.5\%, and 7.5\% on the easy, moderate, and hard levels respectively for the $AP_{3D}$ metric. However, for the $AP_{BEV}$ metric, our model is even better at the easy level and only reduces 4.1\% and 5\% on the remaining 2 levels. Meanwhile, the inference speed is increased by \textbf{28.5\%} compared to the baseline.
+
+\noindent\textbf{Experiment on the Car category of KITTI 3D val set.} We also evaluated our approach on the KITTI validation dataset using the $AP_{3D}$ metrics as listed in \Cref{tab:result}. Our method outperforms previous works thanks to the Mamba-based encoder-decoder architecture and the multi-scale depth enhancement strategy. Specifically, compared to the baselines, MonoDTR \cite{MonoDTR}, MonoDSSMs-M achieves significant improvements in $AP_{3D}$ at the 0.7 IoU threshold across three settings: \textbf{2.58\slash0.53\slash0.33}. Similarly, MonoDSSMs-A shows improvements \textbf{2.10\slash0.38\slash0.10}.
+
+\noindent\textbf{Efficiency analysis.} We evaluated the speed of our models by processing the entire KITTI validation dataset on a single NVIDIA 3090 GPU. The results, shown in \Cref{tab:result} demonstrate that our models achieve real-time performance at \textit{34} FPS, signifying the efficiency of our approach. Furthermore, our MonoDSSMs are significantly faster than previous state-of-the-art monocular 3D object detection methods, running at speeds \textbf{1.23x} and \textbf{1.28x} than MonoGround \cite{MonoGround} and MonoDTR \cite{MonoDTR}, respectively.
+
+\subsection{Ablation Study}
+\textbf{Model Efficiency.} In \Cref{tab:abl_arch_1}, we first change the backbone of the baseline from DLA-102 \cite{DLA} to DLA-34 (b). As mentioned in the previous section, the performance of our approach drops 2--7\% in 3 different levels of the evaluation metric. However, the model has 2.3x fewer parameters and 1.33x faster computation time, exceeds the threshold of 30 fps, which is both efficient and applicable to real-world applications.
+
+\noindent\textbf{Effectiveness of Mamba.} In \Cref{tab:abl_arch_1}, we conduct various experiments with different settings: (c) Replacing SelfAttention in the encoder and decoder of Depth-Aware Transformer \cite{MonoDTR} with Mamba, (d) Replacing the original Mamba with Bidirection Mamba to enhance the visual context. Firstly, we see that using Mamba (c) provides a modest performance improvement without sacrificing efficiency. Furthermore, Bidirection-Mamba (d) offers a significant boost in detection accuracy with minimal computational overhead. These results highlight the effectiveness of Mamba, particularly the novel Bidirection-Mamba architecture, in handling visual data.
+
+\noindent\textbf{Multi scale depth prediction.} To investigate the impact of multi-scale depth map prediction on detection performance, we conducted an additional experiment (e) as shown in \Cref{tab:abl_arch_1}. Our results demonstrate that incorporating ASPP outperforms the simpler approach in prior work on the KITTI validation set. Especially, employing various dilation rates during depth map feature extraction significantly boosted performance, particularly for moderate and hard difficulty levels. This improvement likely stems from capturing more accurate depth information for distant objects.
+\begin{table}[tb]
+    \caption{\textbf{Analysis of different components of our approach} on the Car category of the KITTI validation set. `DLA34' denotes using DLA-34 \cite{DLA} as backbone. `S6', `BiS6' denotes using Mamba2 \cite{mamba2} and the proposed BiMamba2 as an alternative approach to SelfAttention \cite{attention}. `ASPP' denotes the ASPP approach \cite{AstrousCNN} for depth map prediction by utilizing various dilation rates.
+    }
+    \label{tab:abl_arch_1}
+    \centering
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{c|cccc|c|c|ccc|ccc}  
+        \hline  
+        \multicolumn{1}{l|}{\multirow{2}{*}{}}
+        &
+        \multicolumn{4}{c|}{Ablation} & \multicolumn{1}{c|}{\multirow{2}{*}{\hspace{0.05cm}FPS\hspace{0.05cm}}} & \multicolumn{1}{c|}{\multirow{2}{*}{\hspace{0.05cm}Params\hspace{0.05cm}}}
+        & \multicolumn{3}{c|}{$AP_{3D}$@IoU=0.7} & \multicolumn{3}{c}{$AP_{BEV}$@IoU=0.7}  \\ \cline{8-13} \cline{2-5}
+        & \hspace{0.025cm}DLA-34 & \hspace{0.025cm}S6 & \hspace{0.025cm} BiS6 & \hspace{0.025cm} ASPP\hspace{0.025cm} & & & \hspace{0.075cm}Easy \hspace{0.0375cm} & \hspace{0.0375cm}Mod.  \hspace{0.0375cm} & \hspace{0.0375cm}Hard\hspace{0.075cm}  & \hspace{0.075cm}Easy\hspace{0.0375cm} &\hspace{0.0375cm} Mod.\hspace{0.0375cm} & \hspace{0.0375cm}Hard\\ 
+        \hline \hline
+        (a) & & & & & 27.0 & 54.25 &  24.52 &  18.57 &  15.51 & 33.33 & 25.35 & 21.68\\
+        (b) & \checkmark & & & & 36.0 & 23.28 & 24.04 & 18.02 & 14.80 & 33.66 & 24.09 & 20.24 \\
+        (c) & \checkmark & \checkmark & & & 36.2 & 23.39 & 25.16 & 18.33 & 15.14 & 33.85 & 24.65 & 20.24\\
+        (d) & \checkmark & & \checkmark & & 35.5 & 23.43 & 26.57 & 18.59 & 15.28 & 34.82 & 25.04 & 20.34\\
+        (e) & \checkmark & & \checkmark & \checkmark & 34.7 & 23.61 & 26.62 & 18.95 & 15.61 & 35.96 & 25.90 & 22.02\\
+    \end{tabular}}
+\end{table}
+
+\noindent\textbf{Mamba-based feature fusion.}
+%Mamba base feature fusion
+As shown in \Cref{tab:abl_arch_2}, we employ MonoDSSMs-A and MonoDSSMs-M to evaluate the effectiveness of the proposed Mamba-based feature fusion. In the KITTI validation set, our experiments demonstrate that the proposed CrossMamba achieves better detection performance than CrossAttention, particularly at easier difficulty levels with a 2\% gap. However, the KITTI test set results for MonoDSSMs-M are lower. This might be due to some mismatch between the dataset distribution of the two sets. Despite this, based on the positive results in the KITTI validation set, we believe that the proposed CrossMamba has promise as a powerful feature fusion approach based on State Space Models (SSMs) and can be further developed in future work.
+\begin{table}[tb]
+    \caption{\textbf{Comparison of different feature fusion methods} on the Car category of the KITTI dataset. `CA' denotes Cross Attention \cite{attention} module as a feature fusion method within the encoder-decoder architecture (MonoDSSMs-A). `CS6' denotes the proposed CrossMamba as an alternative approach to CA (MonoDSSMs-M).}
+    \label{tab:abl_arch_2}
+    \centering
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{cc|ccc|ccc|ccc|ccc}
+         \hline  
+        \multicolumn{2}{c|}{Ablation} &\multicolumn{3}{c|}{Test, $AP_{3D}$} & \multicolumn{3}{c|}{Test, $AP_{BEV}$} &  \multicolumn{3}{c|}{Val, $AP_{3D}$} & \multicolumn{3}{c}{Val, $AP_{BEV}$} \\ \cline{1-14} 
+        CA &\hspace{0.00625cm} CS6 \hspace{0.00625cm}&\hspace{0.00625cm} Easy &  Mod. & Hard \hspace{0.00625cm}&\hspace{0.00625cm} Easy & Mod. & Hard \hspace{0.00625cm}&\hspace{0.00625cm} Easy & Mod. & Hard \hspace{0.00625cm}&\hspace{0.00625cm} Easy & Mod. & Hard\\ \hline \hline
+        \checkmark &  & 21.47 & 14.55 & 11.78 & 28.84 & 19.54 & 16.30 & 26.62 & 18.95 & 15.61 & 35.96 & 25.90 & 22.02 \\
+        & \checkmark & 19.80 & 14.15 & 11.56 & 28.29 & 19.59 & 16.34 & 27.10 & 19.10 & 15.84 & 37.73 & 25.86 & 22.12\\
+    \end{tabular}}
+\end{table}
+
+\subsection{Plug-and-Play with Modern Vision Mamba.}
+\Cref{tab:plug_and_play_mamba} evaluates how different Vision Mamba scanning strategies perform when plugged into our MonoDSSMs framework on the Car category of the KITTI validation set. Starting from our full architecture, we replace only the scanning module while keeping the backbone, depth-aware components, training schedule, and all other hyperparameters unchanged. This isolates the effect of the scanning strategy itself on monocular 3D detection performance.
+
+\noindent We organize the compared methods into two groups based on how the scan order is determined. Fixed strategies (rows a–c) traverse features along predetermined paths: our Bidirectional scan (a), VMamba~\cite{VMamba}'s (b) four-directional cross-scan, and LocalMamba~\cite{LocalMamba}'s (c) windowed local scan. Learnable strategies (rows d–e) adapt the scanning path to the input: GrootVL~\cite{GrootVL} (d) constructs an input-dependent tree topology, and DeformableMamba~\cite{DefMamba} (e) predicts deformable scan offsets.
+
+\noindent Among fixed-scan methods, our Bidirectional design (a) achieves the highest FPS (34.7) and ties for the smallest parameter count (23.61M) with LocalMamba~\cite{LocalMamba}, while remaining within 0.4 AP of the best fixed-scan accuracy. The more elaborate scan patterns of VMamba~\cite{VMamba} and LocalMamba~\cite{LocalMamba} do not yield meaningful accuracy improvements in this setting, suggesting that additional scan directions offer limited benefit for monocular 3D detection.
+
+\noindent The learnable variants demonstrate the potential of input-adaptive scanning for monocular 3D detection. DeformableMamba (e) achieves the best accuracy on five of six AP metrics, and GrootVL (d) leads on the remaining one. Together, they consistently outperform all fixed-scan approaches. This indicates that allowing the scan path to adapt to image content captures spatial dependencies more effectively than any predetermined traversal order. Whether through learned tree topologies or deformable offsets, input-adaptive scanning emerges as a promising direction for future iterations of MonoDSSMs.
+
+\noindent Equally important, these results demonstrate the generality of the MonoDSSMs framework. Despite the substantial differences in how each method constructs its scan path, every variant integrates seamlessly into our architecture and produces strong detection performance. This confirms that MonoDSSMs is not tied to any specific scanning strategy: it serves as a general-purpose backbone for state-space-based monocular 3D detection, capable of accommodating both current and future advances in Vision Mamba design.
+
+\begin{table}[h!]
+    \caption{\textbf{Plug-and-Play with modern Vision Mamba} architecture on the Car category of the KITTI val dataset. Best is highlighted in \textbf{bold}, and second \underline{underline}.}
+    \label{tab:plug_and_play_mamba}
+    \centering
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{c|c|l|c|c|ccc|ccc}  
+        \hline  
+        \multicolumn{1}{l|}{\multirow{2}{*}{}}
+        &
+        \multicolumn{1}{c|}{\multirow{2}{*}{Attribute}}
+        &
+        \multicolumn{1}{l|}{\multirow{2}{*}{Mamba Architecture}} & \multicolumn{1}{c|}{\multirow{2}{*}{\hspace{0.05cm}FPS\hspace{0.05cm}}} & \multicolumn{1}{c|}{\multirow{2}{*}{\hspace{0.05cm}Params\hspace{0.05cm}}}
+        & \multicolumn{3}{c|}{$AP_{3D}$@IoU=0.7} & \multicolumn{3}{c}{$AP_{BEV}$@IoU=0.7}  \\ \cline{6-11}
+        & & & & & \hspace{0.075cm}Easy \hspace{0.0375cm} & \hspace{0.0375cm}Mod.  \hspace{0.0375cm} & \hspace{0.0375cm}Hard\hspace{0.075cm}  & \hspace{0.075cm}Easy\hspace{0.0375cm} &\hspace{0.0375cm} Mod.\hspace{0.0375cm} & \hspace{0.0375cm}Hard\\ 
+        \hline \hline
+        (a) & \multirow{3}{*}{Fixed} & Bidirectional (Ours) & \textbf{34.7} & \textbf{23.61} & 26.62 & 18.95 & 15.61 & 35.96 & 25.90 & 22.02 \\
+        (b) &  & VMamba~\cite{VMamba} & 33.3 & 24.72 & 26.58 & 18.74 & 15.58 & 35.84 & 26.01 & 21.91 \\
+        (c) &  & LocalMamba~\cite{LocalMamba} & \underline{34.6} & \textbf{23.61} & 26.65 & 18.87 & 15.52 & 36.02 & 25.95 & 21.97 \\
+        \hline
+        (d) & \multirow{2}{*}{Learnable} & GrootVL~\cite{GrootVL} & 34.5 & 25.35 & \underline{26.94} & \underline{19.12} & \textbf{15.76} & \underline{36.23} & \textbf{26.15} & \underline{22.14} \\
+        (e) &  & DeformableMamba~\cite{DefMamba} & 33.8 & 25.48 & \textbf{26.98} & \textbf{19.17} & \underline{15.72} & \textbf{36.29} & \underline{26.07} & \textbf{22.15} \\
+        \hline
+    \end{tabular}}
+\end{table}
+
+\subsection{Qualitative Results}
+\Cref{monodssms:fig:qualitative} presents qualitative examples from the KITTI validation set. Compared to the baseline MonoDTR model, our MonoDSSMs model yields predictions that are significantly closer to the ground truth. As we can observe in \Cref{monodssms:fig:qualitative}, our prediction (blue boxes) is very close to the groundtruth (red boxes), while there are still recognizable gaps between the baseline prediction (green boxes) and the groundtruth.
+\begin{figure}[t!]
+    \centering
+    \includesvg[width=1\linewidth]{images/monodssms/QualitativeResult.svg}
+    \caption{\textbf{Qualitative examples on the KITTI validation set.} We provide the predictions on both the image view (top) and the bird's-eye view (bottom). \textbf{\textcolor{blue}{Blue}} boxes indicate predictions from MonoDSSMs in the image and BEV plane. \textbf{\textcolor{red}{Red}} boxes represent ground truth, while \textbf{\textcolor{green}{green}} boxes show predictions from the baseline model on the BEV. For optimal viewing, zoom in and use color.}
+    \label{monodssms:fig:qualitative}
+\end{figure}

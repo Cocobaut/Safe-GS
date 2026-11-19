@@ -1,0 +1,30 @@
+\section{Trích xuất Watertight Mesh và kết quả thực nghiệm}
+\subsection{Trích xuất lưới kín nước từ khuôn (\texttt{tools/frame\_mesh.py})}
+Từ khung bao đã được gọt và lấp đầy ở các bước trên, công cụ \texttt{tools/frame\_mesh.py} thực hiện trích xuất lưới tam giác trực tiếp cho từng thực thể độc lập. Khác với phiên bản v1 ($0/7$ vật thể kín nước, phải phụ thuộc bao lồi CoACD chia ly trà thành 210 mảnh), quy trình \textbf{Safe-GS v3 (\texttt{mesh\_final})} đạt \textbf{12/13 vật thể kín nước hoàn toàn} ($0$ cạnh biên hở, $0$ cạnh non-manifold; riêng \textit{vung\_tra} được giữ lại ở lớp nền tĩnh do quá mỏng).
+
+\subsection{Kết quả đo đạc thực nghiệm tổng hợp trên cảnh Teatime}
+Toàn bộ các thành phần tối ưu nhất (\textit{Winning Stack}: khuôn \texttt{v3\_sam3} + \texttt{s4d\_cutfill --texture\_fill} + \texttt{mesh\_final}) đã được ghép nối và đánh giá toàn trình trên 23 góc nhìn kiểm thử (\texttt{S9v3/final\_v3\_tex}) cũng như trong mô phỏng vật lý MuJoCo (\texttt{tools/scene\_lift.py --com\_frame 1}). Kết quả được tổng hợp trong Bảng~\ref{tab:safegs_v3_comparison}.
+
+\begin{table}[H]
+\centering
+\caption{Kết quả thực nghiệm chốt hạ (\textit{Winning Stack}) và đối chứng các phương pháp trên cảnh \textit{teatime}.}
+\label{tab:safegs_v3_comparison}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Khâu đánh giá} & \textbf{Phương pháp / Phiên bản} & \textbf{Kết quả đo đạc thực tế} \\ \midrule
+Tách vật (LERF-Mask) & SAM 3 ($s=0.5$) vs \textbf{Adaptive Gate} & $77.6 / 75.9$ vs $\mathbf{92.0 / 90.2}$ (mIoU/mBIoU) \\
+PSNR vùng chân đế bàn & Flat fill vs \textbf{Texture fill (\texttt{e8tex})} & $21.83\text{ dB}$ vs $\mathbf{23.83\text{ dB}}$ ($+2.0\text{ dB}$) \\
+Độ nét vùng bàn vừa lấp & Flat fill vs \textbf{Texture fill (\texttt{e8tex})} & $0.627$ vs $\mathbf{0.986}$ (gần $1.0$) \\
+Tỷ lệ vật thể kín nước & v1 vs \textbf{v3 (\texttt{mesh\_final})} & $0/7$ ($0\%$) vs $\mathbf{12/13}$ (chỉ trừ vũng trà) \\
+Tương tác nâng vật (MuJoCo) & \texttt{scene\_lift.py --com\_frame 1} & \textbf{9/9 vật nhấc $9.99\text{ cm}$}, 8/9 khớp đồ thị \\
+Nhấc-thả cốc $20\text{ cm}$ & Safe-GS v3 (\texttt{coc\_su}) & Lệch ngang $\mathbf{0.0005\text{ mm}}$, nghiêng $\mathbf{0.0007^\circ}$ \\
+Render toàn cảnh (23 view) & v1 vs \textbf{Winning Stack} vs CoMe 30k & $22.620$ vs $\mathbf{22.937}$ vs $23.345\text{ dB}$ \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hạn chế còn tồn đọng}
+Bên cạnh các kết quả đạt được, thực nghiệm vẫn ghi nhận một số điểm cần tiếp tục hoàn thiện:
+\begin{itemize}
+    \item \textbf{Vật siêu nhỏ bị che khuất sâu (\textit{thia}):} Cây thìa (thể tích $1.0\text{ cm}^3$) vẫn trượt rơi khỏi lòng cốc ($130.62\text{ mm}$) do phần lòng thìa nằm khuất bên trong cốc chưa từng xuất hiện trên các góc chụp camera.
+    \item \textbf{Tổng quát hóa đa cảnh:} Các thí nghiệm hiện tại tập trung chuyên sâu trên cảnh thực tế \textit{teatime}, cần mở rộng kiểm thử sang các cảnh bổ sung thuộc bộ dữ liệu Replica và LERF.
+\end{itemize}

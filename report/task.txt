@@ -1,0 +1,17 @@
+Introduction --> Minh
+Theoretically Background - Phong
+ + SFM
+ + GOF --> Cái trích mesh nó với thuật toán opacity đồ á 
+ + PE
+ + Tìm thêm đi nha cái nào cần thiết ko có trong sách á
+Dataset: Information + Metrics
+ + Replica + LERF - Minh
+ + Inpaint360 - Khải
+Related Work:
+ Gemini + Claude
+Baseline: 
+ + RGB -> Mesh - Khải
+ + Mesh -> PE -> Tương tác - Phong
+Proposal: Minh
+ + Prompt --> vật --> UNet ra được cái khung vật --> train gaussian ép sát khung phạt sao chỗ nào ko nhìn thấy để trống --> inpaint lại vật + vật chứa vật ví dụ cái ly trên mặt bàn á --> mesh
+Kết luận: Phong

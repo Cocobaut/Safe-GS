@@ -1,0 +1,15 @@
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{The design of Noisy Boxes Embedding.} After applying sinusoidal positional encoding to continuous noisy values and a learnable embedding for discrete noisy values, we initially constructed the noisy query using a single linear layer. We later explored alternative configurations, including a two-layer MLP and progressively deeper variants.} 
+    \begin{tabular}{c|ccc}
+         \toprule
+         \multirow{2}{*}{\# of MLP Layers} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+          & Easy & Mod. & Hard \\ \midrule \midrule
+         1 &  30.32 & 22.27 & 18.93 \\
+         2 & 30.41 & 22.53 & 19.21\\
+         3 & \textbf{30.46} & \textbf{22.78} & \textbf{19.49} \\
+         4 & 30.36 & 22.45 & 19.01 \\
+         \bottomrule
+    \end{tabular}
+    \label{tab:mlp_noisy_embed}
+\end{table}

@@ -1,0 +1,86 @@
+\section{Advanced DETR Architecture}
+\subsection{Deformable DETR: Deformable Transformers for End-to-End Object Detection}
+
+DeformableDETR~\cite{DeformableDETR} overcomes the slow convergence and resolution limitations of the original DETR by replacing global attention with a deformable attention module (\Cref{fig:deformable_attn}). This mechanism allows the model to attend to a small, learned set of key sampling points around a reference. Consequently, this efficiency enables the architecture shown in \Cref{fig:deformableDETR_overall}, which extends the transformer to handle multi-scale feature maps for improved detection of small objects.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//AdvancedDETR//DeformableDETR/deformable_attn.png}
+    \caption{Illustration of the deformable attention module}
+    \label{fig:deformable_attn}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//AdvancedDETR//DeformableDETR/deformableDETR_overall.png}
+    \caption{llustration of the proposed Deformable DETR~\cite{DeformableDETR} object detector.}
+    \label{fig:deformableDETR_overall}
+\end{figure}
+
+
+\subsection{Group DETR: Fast DETR Training with Group-Wise One-to-Many Assignment}
+
+To address the slow convergence of DETR-based models, GroupDETR~\cite{GroupDETR} introduces a group-wise one-to-many assignment strategy. As illustrated in \Cref{fig:groupdetr_overall}, the method utilizes multiple groups of object queries to supply richer positive supervision signals during training. \Cref{alg:groupdecoder} demonstrates how self-attention is computed independently within each group, ensuring that the essential one-to-one assignment property is preserved.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//AdvancedDETR//GroupDETR/groupdetr_overall.png}
+    \caption{Architecture illustration of different one-to-many assignment approach in Group-DETR~\cite{GroupDETR}}
+    \label{fig:groupdetr_overall}
+\end{figure}
+
+\begin{algorithm}[h!]
+\caption{Pseudocode of one Group Decoder Layer}
+\vspace{0.2cm}
+\label{alg:groupdecoder}
+\definecolor{codeblue}{rgb}{0.25,0.5,0.5}
+\definecolor{codekw}{rgb}{0.85, 0.18, 0.50}
+\lstset{
+  backgroundcolor=\color{white},
+  basicstyle=\fontsize{7.5pt}{7.5pt}\ttfamily\selectfont,
+  columns=fullflexible,
+  breaklines=true,
+  captionpos=b,
+  commentstyle=\fontsize{7.5pt}{7.5pt}\color{codeblue},
+  keywordstyle=\fontsize{7.5pt}{7.5pt}\color{codekw},
+}
+\begin{lstlisting}[language=python]
+# SA: Self-Attention in the decoder layer
+# CA: Cross-Attention in the decoder layer
+# FFN: FFN in the decoder layer
+# X: output image features of the encoder
+# Q: object queries, with size (KxN, B, C)
+# N, K, B, C: object query number, group number, batch size, feature dimension
+
+# group decoder
+if training:
+    # split object queries to K groups
+    Q_list = Q.split(N, dim=0) # a list of K tensors
+    parallel_Q = cat(Q_list, dim=1) # (N, KxB, C)
+    
+    # parallel self-attention
+    out = SA(parallel_Q) # (N, KxB, C)
+    # concat all groups: (KxN, B, C)
+    out = cat(out.split(B, dim=1), dim=0)
+    
+    # cross-attention and ffn
+    out = FFN(CA(out, X))
+else:   
+    # in inference, only one group is kept
+    Q = Q[:N]  # (N, B, C)
+    
+    # self-attention, cross-attention, and ffn
+    out = SA(Q)
+    out = FFN(CA(out, X))
+\end{lstlisting}
+\vspace{-3mm}
+\end{algorithm}
+
+
+\subsection{DN-DETR: Accelerate DETR Training by Introducing Query DeNoising}
+
+DN-DETR~\cite{DN-DETR} accelerates DETR training by addressing the slow convergence caused by the instability of bipartite graph matching. It introduces a novel query denoising training strategy, where ground-truth bounding boxes with added noise are fed into the decoder to reconstruct the original boxes. This process, as illustrated in \Cref{fig:DN_DETR_overall}, bypasses the unstable matching for the denoising queries, providing explicit supervision that significantly speeds up convergence and improves performance.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//AdvancedDETR//DN_DETR/DN_DETR_overall.png}
+    \caption{The overview of DN-DETR~\cite{DN-DETR} training method.}
+    \label{fig:DN_DETR_overall}
+\end{figure}

@@ -1,0 +1,30 @@
+\section{Bringing Transformer to Monocular 3D Object Detection}
+\subsection{MonoDTR: Monocular 3D Object Detection with Depth-Aware Transformer}
+
+MonoDTR~\cite{MonoDTR} proposes an end-to-end depth-aware transformer network (\Cref{fig:MonoDTR_overall}) for monocular 3D object detection, aiming to overcome the limitations of relying on inaccurate off-the-shelf depth estimators. It introduces two key modules: a Depth-Aware Feature Enhancement (DFE) module that implicitly learns depth-aware features using auxiliary supervision without extra computation, and a Depth-Aware Transformer (DTR) module that integrates context and depth cues globally.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoTrans//MonoDTR/MonoDTR_overall.png}
+    \caption{The overall framework of MonoDTR~\cite{MonoDTR}.}
+    \label{fig:MonoDTR_overall}
+\end{figure}
+
+\subsection{MonoDETR: Depth-guided Transformer for Monocular 3D Object Detection}
+
+MonoDETR~\cite{MonoDETR} adapts the DETR framework for monocular 3D detection by introducing a novel depth-guided Transformer architecture (\Cref{fig:MonoDETR_overall}). Unlike previous methods that rely primarily on local visual features or dense depth supervision, MonoDETR generates a foreground-aware depth map to guide the attention mechanism, allowing the model to capture global geometric clues and long-range dependencies.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoTrans//MonoDETR/MonoDETR_overall.png}
+    \caption{Overall framework of MonoDETR~\cite{MonoDETR}.}
+    \label{fig:MonoDETR_overall}
+\end{figure}
+
+\subsection{MonoDGP: Monocular 3D Object Detection with Decoupled-Query and Geometry-Error Priors}
+
+MonoDGP~\cite{MonoDGP} improves Transformer-based detection by using a decoupled-query mechanism that stabilizes 2D object priors before refining 3D attributes, preventing unstable depth learning from disrupting query initialization. It introduces a novel geometry-error prior to correct the standard perspective projection formula, making depth estimation robust against visual inconsistencies without requiring dense depth supervision. The detail is shown in \Cref{fig:MonoDGP_overall}.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoTrans//MonoDGP/MonoDGP_overall.png}
+    \caption{Overall framework of MonoGDP~\cite{MonoDGP}.}
+    \label{fig:MonoDGP_overall}
+\end{figure}

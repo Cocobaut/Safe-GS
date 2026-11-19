@@ -1,0 +1,58 @@
+\section{KITTI dataset}
+\subsection{Dataset Information}
+KITTI dataset~\cite{KITTI} is one of the most common datasets used in research varying from computer vision to robotics. It includes camera images, laser scans, high-precision GPS measure-
+ments, and IMU accelerations from a combined GPS/IMU system, capturing real-world traffic situations and range from freeways over rural areas to inner-city scenes with many static and dynamic objects. Many SOTA research of Object Detection, Depth Estimation, Semantic Seg-mentation used KITTI as a base metric for comparison. \Cref{fig:kitti_example} illustrates a sample of images from KITTI dataset.
+
+KITTI consists of 7481 training images and 7518 test images for each task. Despite the fact that there are eight different classes, only the classes \textit{Car, Cyclist,} and \text{Pedestrian} are evaluated in their benchmark, as only for those classes have enough instances for a comprehensive evaluation have been labeled. The dataset’s sub-folders are structured as follows:
+\begin{itemize}
+    \item \texttt{image\_02}: contains the left color camera images (png)
+    \item \texttt{label\_02}: contains the left color camera label files (plain text files)
+    \item  \texttt{calib}: contains the calibration for all four cameras (plain text file)
+\end{itemize}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{images//dataset//kitti/kitti_example.png}
+    \caption{Examples from the KITTI dataset (from left color camera).}
+    \label{fig:kitti_example}
+\end{figure}
+
+The label files contain 15 columns for each object:
+\begin{itemize}
+    \item \texttt{type:} Describes the type of object: ‘Car’, ‘Van’, ‘Truck’, ‘Pedestrian’, ‘Person sitting’, ‘Cyclist’, ‘Tram’, ‘Misc’ or ‘DontCare’.
+    \item \texttt{truncated:} Float from 0 (non-truncated) to 1 (truncated), where truncated refers to the object leaving image boundaries.
+    \item \texttt{occluded:} Integer (0,1,2,3) indicating occlusion state: 0 means fully visible, 1 means partly occluded 2 means largely occluded and 3 means unknown.
+    \item $\alpha:$ Observation angle of object, ranging in $\left[-\pi,\pi\right]$.
+    \item \texttt{bounding box:} 2D bounding box of object in the image (0-based index): contains left, top, right, bottom pixel coordinates.
+    \item \texttt{dimensions:} 3D object dimensions: height, width, length (in meters).
+    \item \texttt{location:} 3D object location x,y,z in camera coordinates (in meters).
+    \item $r_y:$ Rotation $r_y$ around Y-axis in camera coordinates, ranging in $\left[-\pi,\pi\right]$.
+\end{itemize}
+The coordinates in the camera coordinate system can be projected in the image by using the $3\times 4$ projection matrix in the calibration folder, where for the left color camera for which the
+images are provided, P2 must be used~\cite{KITTI}. The difference between $r_y$ and $\alpha$ is that $r_y$ is directly
+given in camera coordinates, while $\alpha$ also considers the vector from the camera center to the
+object center, to compute the relative orientation of the object with respect to the camera.
+\subsection{Evaluation Metrics}
+
+The KITTI object detection benchmark evaluates performance using the Average Precision (AP) metric, following the PASCAL VOC standard. To determine if a prediction is a True Positive (TP), the Intersection over Union (IoU) between the predicted bounding box and the ground truth bounding box must exceed a specific threshold. 
+
+For the \textit{Car} class, the required IoU overlap is $70\%$, while for the \textit{Pedestrian} and \textit{Cyclist} classes, the required IoU is $50\%$. Detections that do not meet these overlap criteria or are assigned to a ground truth that has already been detected are counted as False Positives (FP).
+
+To allow for a nuanced analysis of detector performance across different scenarios, the evaluation is performed separately for three difficulty levels: \textit{Easy}, \textit{Moderate}, and \textit{Hard}. These levels are defined based on the minimum height of the bounding box, the occlusion level, and the truncation ratio, as detailed in \Cref{tab:kitti_difficulty}.
+
+\begin{table}[h]
+    \centering
+    \caption{Definition of KITTI difficulty levels for object detection evaluation.}
+    \label{tab:kitti_difficulty}
+    \begin{tabular}{l|ccc}
+        \hline
+        \textbf{Difficulty} & \textbf{Min. Height} & \textbf{Max. Occlusion} & \textbf{Max. Truncation} \\
+        \hline
+        \textit{Easy} & 40 Px & Fully Visible (0) & 15\% \\
+        \textit{Moderate} & 25 Px & Partly Occluded (1) & 30\% \\
+        \textit{Hard} & 25 Px & Difficult to See (2) & 50\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+Historically, the KITTI benchmark utilized an 11-point interpolation for calculating $AP|_{R_{11}}$. However, current state-of-the-art research typically utilizes the newer 40-point interpolation metric $AP|_{R_{40}}$, introduced in~\cite{MonoDis} to resolve interpolation bias and provide a more accurate comparison. The final ranking of methods on the leaderboard is determined by the performance on the \textbf{Moderate} difficulty setting.

@@ -1,0 +1,13 @@
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{Comparison on the effect of number denoising group} to the model. $C=1$ denotes using only one denoising group for each learnable query group. $C=5$ denotes duplicating the ground truth 5 times and creating 5 denoising groups for each learnable query group.}
+    \begin{tabular}{c|ccc}
+         \toprule
+         \multirow{2}{*}{\# of denoising groups} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+          & Easy & Mod. & Hard \\ \midrule \midrule
+         C = 1 & 30.28 & 22.18 & 18.70\\
+         C = 5 & \textbf{30.46} & \textbf{22.78} & \textbf{19.49} \\
+         \bottomrule
+    \end{tabular}
+    \label{tab:denoising_group_ablation}
+\end{table}

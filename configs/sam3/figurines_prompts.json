@@ -1,0 +1,95 @@
+{
+  "_comment": "Prompt SAM 3 cho LERF figurines, chon tu anh frame_00001 / frame_00150 (vat nhin thay tren ban). Thu tu = uu tien tang dan (vat lon truoc, vat nho sau de). Nhan < 256. check_overlap: vat nho de bat nham vat lon cung loai -> bo instance neu > 30% dien tich da co nhan vat khac (tru ban). overlap_mode swallow: chi bo instance nuot > 50% mot vat da co nhan (ban area30 cu bo nham vat nho nam trong mask hop keo / vit lon: waldo 233 frame manh -> 44 frame nhan).",
+  "scene": "figurines",
+  "support_label": 10,
+  "prompts": [
+    [
+      "table",
+      10
+    ],
+    [
+      "plastic box of candy",
+      20
+    ],
+    [
+      "camera",
+      30
+    ],
+    [
+      "silver lamp",
+      40
+    ],
+    [
+      "candy bag",
+      50
+    ],
+    [
+      "green apple",
+      60
+    ],
+    [
+      "yellow rubber duck",
+      70
+    ],
+    [
+      "porcelain hand",
+      80
+    ],
+    [
+      "yellow dog toy",
+      90
+    ],
+    [
+      "blue elephant toy",
+      100
+    ],
+    [
+      "green toy chair",
+      110
+    ],
+    [
+      "red toy chair",
+      120
+    ],
+    [
+      "play-doh can",
+      130
+    ],
+    [
+      "rubik's cube",
+      140
+    ],
+    [
+      "cat figurine",
+      150
+    ],
+    [
+      "pumpkin",
+      160
+    ],
+    [
+      "red apple",
+      170
+    ],
+    [
+      "rubber duck with pirate hat",
+      180
+    ],
+    [
+      "rabbit figurine",
+      190
+    ],
+    [
+      "waldo figurine",
+      200
+    ]
+  ],
+  "check_overlap": [
+    "red apple",
+    "rubber duck with pirate hat",
+    "rabbit figurine",
+    "waldo figurine",
+    "cat figurine"
+  ],
+  "overlap_mode": "swallow"
+}

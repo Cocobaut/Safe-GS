@@ -1,0 +1,25 @@
+\section{Convolutional Neural Network}
+
+While FNNs are powerful, they struggle with high-dimensional data such as images: a fully connected layer applied to a $224 \times 224$ RGB image would require over 150,000 input weights per neuron, leading to overfitting and high computational cost. Convolutional Neural Networks (CNNs) address this by exploiting the spatial structure of images through local receptive fields, parameter sharing, and pooling.
+
+\subsection{Convolutional Layer}
+The core building block of a CNN is the convolutional layer. Instead of connecting every input pixel to every neuron, it uses a set of learnable filters (kernels) that slide across the input, computing dot products between the filter and the local input region. For a 2D input $I$ and kernel $K$, the convolution is defined as:
+\begin{equation}
+    S(i, j) = (I * K)(i, j) = \sum_{m} \sum_{n} I(i+m, j+n) K(m, n)
+\end{equation}
+This produces a \textit{feature map}, and multiple filters per layer allow the network to detect distinct features (edges, textures, etc.) in parallel.
+
+Two hyperparameters control the output size: the \textbf{stride} ($S$), which is the step size of the filter, and the \textbf{padding} ($P$), which adds zeros around the input border to preserve spatial dimensions. Given an input size $W$ and kernel size $K$, the output spatial size is:
+\begin{equation}
+    O = \frac{W - K + 2P}{S} + 1
+\end{equation}
+
+\subsection{Pooling Layer}
+Pooling layers are inserted between convolutional layers to progressively reduce the spatial size of the representation, which lowers parameter count, reduces computation, and helps control overfitting. The most common variant, \textit{Max Pooling}, outputs the maximum value within each local region:
+\begin{equation}
+    y_{i,j} = \max_{(m,n) \in \mathcal{R}_{i,j}} x_{m,n}
+\end{equation}
+where $\mathcal{R}_{i,j}$ is the local window at location $(i,j)$. Average pooling is an alternative, but max pooling is generally preferred for preserving dominant features.
+
+\subsection{Fully Connected Layer}
+After several convolutional and pooling stages, the resulting feature map is typically flattened into a 1D vector and passed through one or more Fully Connected (FC) layers, where each neuron connects to all activations in the previous layer. In classification networks, the final FC layer outputs class scores. In modern object detection architectures such as YOLO~\cite{YOLO} or DETR~\cite{DETR}, FC layers are often replaced or augmented by specialized heads for bounding box regression and objectness scoring.

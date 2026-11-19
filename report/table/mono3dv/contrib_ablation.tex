@@ -1,0 +1,20 @@
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{Analysis of different components of our approach} on the Car category of the KITTI validation set. `FLD' denotes the Forward-Looking Distillation. `3DM' denotes the 3D-Aware Bipartie Matching.`3DN' denotes 3D-DeNoising, and `VDN' denotes the Variational Query DeNoising.}
+    \resizebox{0.7\columnwidth}{!}{
+    \begin{tabular}{c|cccc|ccc}
+         \toprule
+         \multicolumn{1}{l|}{\multirow{2}{*}{}} &
+         \multicolumn{4}{c|}{Ablation} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+         & FLD & 3DM & 3DN & VDN & Easy & Mod. & Hard \\ \midrule \midrule
+         (a) & \xmark & \xmark & \xmark & \xmark & 29.99 & 20.92 & 17.44 \\
+         (b) & \checkmark & \xmark & \xmark & \xmark & 30.05 & 21.54 & 18.31 \\
+         (c) & \checkmark & \checkmark & \xmark & \xmark & 30.09 & 21.63 & 18.27 \\
+         (d) & \checkmark & \xmark & \checkmark & \xmark & 30.06 & 21.59 & 18.34 \\
+         (e) & \checkmark & \checkmark & \checkmark & \xmark & 30.46 & 22.78 & 19.49\\
+         (f) & \checkmark & \checkmark & \checkmark & \checkmark & \textbf{32.12} & \textbf{23.55} & \textbf{20.15}\\ \midrule
+         \multicolumn{5}{c|}{Improvement} & +2.13 & +2.63 & +2.71\\ 
+         \bottomrule
+    \end{tabular}}
+    \label{tab:contribution_ablation}
+\end{table}

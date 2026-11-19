@@ -1,0 +1,15 @@
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{Ablation study on the effect of $\beta$} in Variational Query DeNoising.}
+    \begin{tabular}{c|ccc}
+         \toprule
+         \multirow{2}{*}{Ablation} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+          & Easy & Mod. & Hard \\ \midrule \midrule
+          $\beta=0$ & 30.46 & 22.78 & 19.49 \\
+          $\beta = 1.0$ & 30.42 & 22.81 & 19.32 \\
+          $\beta = 4.0$ & \textbf{32.12} & \textbf{23.55} & \textbf{20.15} \\
+          $\beta = 10.0$ & 29.98 & 21.32 & 18.62 \\
+         \bottomrule
+    \end{tabular}
+    \label{tab:beta_vdn_ablation}
+\end{table}

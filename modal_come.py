@@ -589,28 +589,222 @@ def smoke_come():
     retries=modal.Retries(max_retries=6, initial_delay=10.0, backoff_coefficient=1.0),
 )
 def train_teatime(ckpt_every: int = CKPT_EVERY):
+    _train_scene_impl(SCENE, ckpt_every)
+
+
+@app.function(
+    image=come_image, gpu=["L40S", "L4"], volumes={VOL: vol},
+    timeout=4 * 3600, cpu=8, memory=32768,
+    retries=modal.Retries(max_retries=6, initial_delay=10.0, backoff_coefficient=1.0),
+)
+def train_scene(scene: str, ckpt_every: int = CKPT_EVERY):
+    """CoMe 30k cho canh bat ky: can <scene>/colmap/{images,sparse/0} tren Volume. Output <scene>/come (cung bo co nhu teatime)."""
+    _train_scene_impl(scene, ckpt_every)
+
+
+@app.local_entrypoint()
+def train(scene: str = "figurines"):
+    train_scene.remote(scene)
+
+
+joint_image = (
+    come_image
+    .add_local_file(REPO_DIR / "tools" / "come_joint_train.py", "/opt/CoMe/come_joint_train.py")
+    .add_local_dir(REPO_DIR / "configs" / "pipeline", "/opt/configs_pipeline")
+)
+
+
+@app.function(
+    image=joint_image, gpu=["L40S", "L4"], volumes={VOL: vol},
+    timeout=14400, retries=2, cpu=8, memory=32768,
+)
+def train_joint_scene(
+    scene: str = "teatime",
+    config_name: str = "teatime_v8.json",
+    labels_rel: str = "sam3_masks_adaptive/labels",
+    hull_rel: str = "mask_hull_sam3_adap",
+    out_rel: str = "come_joint",
+    from_iter: int = 10000,
+    lam_bound: float = 0.05,
+    lam_leak: float = 0.05,
+    lam_cover: float = 0.02,
+    lam_ghost: float = 0.0,
+    ckpt_every: int = CKPT_EVERY,
+):
+    """Joint CoMe + Safe-GS (L_bound + L_leak + L_cover + fg_present) tren Volume safe-gs-come."""
+    t0 = time.time()
+    vol.reload()
+    V = Path(VOL) / scene
+    (V / "logs").mkdir(parents=True, exist_ok=True)
+    remote = V / out_rel
+    final_ply = remote / "point_cloud" / f"iteration_{ITERATIONS}" / "point_cloud.ply"
+    if final_ply.exists() and (remote / "safegs_joint_metrics.json").exists():
+        print(f"Đã train joint xong từ trước: {final_ply}")
+        return
+    print(f"===== joint train {scene} ({out_rel}) bắt đầu", flush=True)
+    print(subprocess.run("nvidia-smi --query-gpu=name,memory.total --format=csv,noheader",
+                         shell=True, capture_output=True, text=True).stdout.strip(), flush=True)
+
+    data = Path(f"/tmp/{scene}_colmap")
+    if not data.exists():
+        for sub in ("images", "sparse"):
+            shutil.copytree(V / "colmap" / sub, data / sub)
+    assert (data / "sparse" / "0" / "points3D.bin").exists(), f"chưa có {scene}/colmap trên Volume"
+    labels_dir = V / labels_rel
+    hull_dir = V / hull_rel
+    assert labels_dir.exists(), f"chưa có {labels_dir}"
+    assert hull_dir.exists(), f"chưa có {hull_dir}"
+    cfg_path = Path("/opt/configs_pipeline") / config_name
+    assert cfg_path.exists(), f"chưa có {cfg_path}"
+
+    local = Path(f"/tmp/come_joint_out/{scene}_{out_rel}")
+    local.mkdir(parents=True, exist_ok=True)
+    resume = ""
+    cks = sorted(remote.glob("chkpnt*.pth"), key=_ckpt_iter) if remote.exists() else []
+    if cks:
+        for name in SMALL_FILES:
+            if (remote / name).exists() and name != "cameras.json":
+                shutil.copy2(remote / name, local / name)
+        if (remote / "cameras.json").exists():
+            shutil.copy2(remote / "cameras.json", local / "cameras.json")
+        shutil.copy2(cks[-1], local / cks[-1].name)
+        resume = f"--start_checkpoint {local / cks[-1].name}"
+        print(f"♻️ tiếp tục joint từ checkpoint iter {_ckpt_iter(cks[-1])}", flush=True)
+
+    ck_iters = " ".join(str(i) for i in range(ckpt_every, ITERATIONS, ckpt_every))
+    cmd = (
+        f"python come_joint_train.py -s {data} -m {local} {COME_ARGS} "
+        f"--checkpoint_iterations {ck_iters} {resume} "
+        f"--safegs_config {cfg_path} --safegs_labels {labels_dir} --safegs_hull_dir {hull_dir} "
+        f"--safegs_from_iter {from_iter} --safegs_lam_bound {lam_bound} "
+        f"--safegs_lam_leak {lam_leak} --safegs_lam_cover {lam_cover} --safegs_lam_ghost {lam_ghost}"
+    )
+    sync = _CkptSync(local, remote)
+    stop = threading.Event()
+
+    def loop():
+        while not stop.wait(20):
+            try:
+                sync.once()
+            except Exception as e:
+                print(f"[checkpoint] lỗi đồng bộ: {e}", flush=True)
+
+    th = threading.Thread(target=loop, daemon=True)
+    th.start()
+    try:
+        _run_train(cmd, "/opt/CoMe", V / "logs" / f"{out_rel}_raw.log")
+    finally:
+        stop.set()
+        th.join(timeout=30)
+        sync.once(final=True)
+
+    for fn in ("safegs_joint_metrics.json", "safegs_oid.npy"):
+        if (local / fn).exists():
+            shutil.copy2(local / fn, remote / fn)
+    shutil.copytree(local / "point_cloud", remote / "point_cloud", dirs_exist_ok=True)
+    sync.once(final=True)
+    vol.commit()
+    assert final_ply.exists(), "joint train xong nhưng không thấy point_cloud cuối"
+    print(f"XONG joint train: {final_ply} | {(time.time() - t0) / 60:.1f} phút", flush=True)
+
+
+@app.local_entrypoint()
+def joint_train(
+    scene: str = "teatime",
+    config_name: str = "teatime_v8.json",
+    labels_rel: str = "sam3_masks_adaptive/labels",
+    hull_rel: str = "mask_hull_sam3_adap",
+    out_rel: str = "come_joint",
+    from_iter: int = 10000,
+    lam_ghost: float = 0.0,
+):
+    train_joint_scene.remote(
+        scene=scene,
+        config_name=config_name,
+        labels_rel=labels_rel,
+        hull_rel=hull_rel,
+        out_rel=out_rel,
+        from_iter=from_iter,
+        lam_ghost=lam_ghost,
+    )
+
+
+lift_image = (
+    joint_image
+    .add_local_file(REPO_DIR / "tools" / "inspect_joint_lift.py", "/opt/CoMe/inspect_joint_lift.py")
+)
+
+
+@app.function(
+    image=lift_image, gpu=["L4", "L40S"], volumes={VOL: vol},
+    timeout=900, cpu=4, memory=16384,
+)
+def run_joint_lift_inspect(
+    scene: str = "teatime",
+    config_name: str = "teatime_v8_hullv4.json",
+    labels_rel: str = "sam3_masks_adaptive/labels",
+    joint_rel: str = "come_joint",
+    out_rel: str = "come_joint_lift",
+):
+    vol.reload()
+    V = Path(VOL) / scene
+    remote = V / joint_rel
+    data = Path(f"/tmp/{scene}_colmap")
+    if not data.exists():
+        for sub in ("images", "sparse"):
+            shutil.copytree(V / "colmap" / sub, data / sub)
+    local = Path(f"/tmp/come_lift/{scene}")
+    local.mkdir(parents=True, exist_ok=True)
+    for name in SMALL_FILES:
+        if (remote / name).exists():
+            shutil.copy2(remote / name, local / name)
+    shutil.copytree(remote / "point_cloud", local / "point_cloud", dirs_exist_ok=True)
+    out = V / out_rel
+    sup = V / "pipeline" / "v8_hullv4" / "S3_label" / "support.json"
+    hull_dir = V / "mask_hull_sam3_adap_v4"
+    cmd = (
+        f"python inspect_joint_lift.py -m {local} -s {data} --iteration {ITERATIONS} "
+        f"--oid_npy {remote / 'safegs_oid.npy'} --config /opt/configs_pipeline/{config_name} "
+        f"--labels {V / labels_rel} --support_json {sup} --hull_dir {hull_dir} --hull_margin_cm 2.0 "
+        f"--targets gau cuu --lift_cm 25.0 --out {out}"
+    )
+    _run_train(cmd, "/opt/CoMe", V / "logs" / "joint_lift_inspect.log")
+    vol.commit()
+
+
+@app.local_entrypoint()
+def joint_lift_inspect(
+    scene: str = "teatime",
+    joint_rel: str = "come_joint",
+    out_rel: str = "come_joint_lift",
+):
+    run_joint_lift_inspect.remote(scene=scene, joint_rel=joint_rel, out_rel=out_rel)
+
+
+def _train_scene_impl(SCENE: str, ckpt_every: int = CKPT_EVERY):
     t0 = time.time()
     vol.reload()
     V = Path(VOL) / SCENE
+    (V / "logs").mkdir(parents=True, exist_ok=True)
     remote = V / "come"
     final_ply = remote / "point_cloud" / f"iteration_{ITERATIONS}" / "point_cloud.ply"
     if final_ply.exists():
         _tlog(f"Đã train xong từ trước: {final_ply}")
         return
     _patch_resume()
-    _tlog("===== train_teatime bắt đầu (lần chạy này)")
+    _tlog(f"===== train {SCENE} bắt đầu (lần chạy này)")
     _tlog(subprocess.run("nvidia-smi --query-gpu=name,memory.total --format=csv,noheader", shell=True,
                          capture_output=True, text=True).stdout.strip())
 
     # dữ liệu: Volume -> local
-    data = Path("/tmp/teatime_colmap")
+    data = Path(f"/tmp/{SCENE}_colmap")
     if not data.exists():
         for sub in ("images", "sparse"):
             shutil.copytree(V / "colmap" / sub, data / sub)
-    assert (data / "sparse" / "0" / "points3D.bin").exists(), "chưa có teatime/colmap trên Volume"
+    assert (data / "sparse" / "0" / "points3D.bin").exists(), f"chưa có {SCENE}/colmap trên Volume"
 
     # output local + khôi phục checkpoint
-    local = Path("/tmp/come_out/teatime"); local.mkdir(parents=True, exist_ok=True)
+    local = Path(f"/tmp/come_out/{SCENE}"); local.mkdir(parents=True, exist_ok=True)
     resume = ""
     cks = sorted(remote.glob("chkpnt*.pth"), key=_ckpt_iter) if remote.exists() else []
     if cks:

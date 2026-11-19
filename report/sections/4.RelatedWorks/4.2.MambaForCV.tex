@@ -1,0 +1,44 @@
+\section{Mamba and Its Variants for Computer Vision}
+\subsection{Vision Mamba: Efficient Visual Representation Learning with Bidirectional State Space Model}
+Vision Mamba~\cite{VIM} proposes a generic vision backbone (\Cref{fig:visionaMamba_overall}) built purely on bidirectional state space models (SSMs) to achieve efficient visual representation learning. By incorporating position embeddings and replacing self-attention with a linear-complexity selective scan mechanism, it effectively captures global context and spatial information. This design enables the model to process high-resolution images with significantly reduced memory and computational costs compared to traditional Vision Transformers.
+
+ \begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MambaForCV//VisionMamba/visionaMamba_overall.png}
+    \caption{The overview of VIM~\cite{VIM} model}
+    \label{fig:visionaMamba_overall}
+\end{figure}
+
+\subsection{VMamba: Visual State Space Model}
+VMamba~\cite{VMamba} adapts the linear-time Mamba architecture for computer vision by introducing the 2D Selective Scan (SS2D) mechanism as shown in \Cref{fig:VMamba_overall}. This approach overcomes the direction-sensitivity of 1D state space models by traversing images along four distinct scanning paths, enabling the model to capture global context with linear computational complexity instead of the quadratic cost of Transformers.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MambaForCV//VMamba/VMamba_overall.png}
+    \caption{Illustration of 2D-Selective-Scan (SS2D).}
+    \label{fig:VMamba_overall}
+\end{figure}
+\subsection{LocalMamba: Visual State Space Model with Windowed Selective Scan}
+LocalMamba~\cite{LocalMamba} improves upon visual state space models by introducing a windowed selective scan strategy, which partitions images into local windows to preserve 2D dependencies and shorten the scanning distance between adjacent tokens. It also incorporates a dynamic scan direction search mechanism that adaptively identifies the optimal scanning patterns for different layers, effectively balancing the capture of local details with global context. This design addresses the limitations of global-only scanning in standard Vim, achieving superior performance on vision tasks with similar computational costs.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MambaForCV//LocalMamba/LocalMamba_overall.png}
+    \caption{Illustration of LocalMamba~\cite{LocalMamba}'s scanning methods}
+    \label{fig:/LocalMamba_overall}
+\end{figure}
+\subsection{GrootVL: Tree Topology is All You Need in State Space Model}
+GrootVL~\cite{GrootVL} introduces a novel tree-structured state space model to overcome the limitations of fixed sequential scanning in standard SSMs by dynamically generating a tree topology (\Cref{fig:GrootVL_scan}) based on input features and spatial relationships. This approach allows for content-aware feature propagation using a linear-complexity dynamic programming algorithm, effectively capturing long-range dependencies without the quadratic computational cost of Transformers.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images//related-works//MambaForCV//GrootVL/GrootVL_scan.png}
+    \caption{Illustration of GrootVL~\cite{GrootVL}'s scanning methods}
+    \label{fig:GrootVL_scan}
+\end{figure}
+
+\subsection{DefMamba: Deformable Visual State Space Model}
+DefMamba~\cite{DefMamba} introduces a Deformable Scanning (\Cref{fig:DefMambaOverall}) strategy to address the limitations of predefined scan orders in visual state space models, which often fail to capture complex spatial structures effectively. By incorporating Deformable Mamba (DM) blocks, the model dynamically learns spatial and sequential offsets to adjust scanning paths, allowing it to prioritize important visual information and reorganize spatial tokens adaptively.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images//related-works//MambaForCV//DefMamba/DefMambaOverall.png}
+    \caption{Illustration of DefMamba~\cite{DefMamba}'s scanning methods}
+    \label{fig:DefMambaOverall}
+\end{figure}

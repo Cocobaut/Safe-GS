@@ -1,0 +1,16 @@
+\section{Huấn luyện Gaussian ép sát khung và cô lập vùng khuyết}
+\subsection{Hàm phạt ranh giới hình học}
+Trong 3DGS tiêu chuẩn, các hạt Gaussian tự do nhân bản (\textit{densification}) và trôi dạt ra ngoài biên vật thể, tạo ra lớp vỏ ma hoặc bám dính xuống mặt bàn. Để khắc phục, chúng tôi tổ chức khung $\mathcal{H}_{obj}$ dưới dạng cây phân cấp thể tích bao \textbf{BVH (Bounding Volume Hierarchy)} giúp kiểm tra vị trí của từng hạt Gaussian $\vec{\mu}_i$ với độ phức tạp $O(\log M)$.
+
+Quá trình tối ưu hóa được bổ sung hàm mất mát phạt biên (\textit{Boundary Penalty Loss}):
+\begin{equation}
+    \mathcal{L}_{bound} = \sum_{i} \alpha_i \cdot \max\Big(0, \text{SDF}(\vec{\mu}_i, \partial \mathcal{H}_{obj})\Big)
+\end{equation}
+Trong đó $\alpha_i$ là độ mờ của hạt Gaussian thứ $i$ và $\text{SDF}(\cdot)$ là hàm khoảng cách có dấu tới bề mặt khung $\partial \mathcal{H}_{obj}$. Nếu hạt nằm gọn bên trong khung ($\text{SDF} \le 0$), hàm phạt bằng 0; ngược lại, hạt trồi ra ngoài sẽ bị phạt tăng dần theo khoảng cách, ép $\alpha_i \to 0$ để bị tỉa bỏ hoàn toàn. Kết hợp với giải thuật tìm thành phần liên thông \textbf{Disjoint-Set (Union-Find)} trên đồ thị lân cận, các cụm hạt rác cô lập (\textit{floaters}) kích thước nhỏ bị loại bỏ triệt để.
+
+\subsection{Cô lập vùng không quan sát được (Để trống có chủ đích)}
+Thay vì để 3DGS tự suy diễn các hạt nhiễu tại phần đáy ly hoặc mặt sau bị che khuất, hệ thống sử dụng giải thuật bắn tia \textbf{DDA (Fast Voxel Traversal)} từ toàn bộ 177 camera đã đăng ký của COLMAP xuyên qua lưới voxel trong khung $\mathcal{H}_{obj}$:
+\begin{equation}
+    \mathcal{V}_{missing} = \{ \vec{x} \in \mathcal{H}_{obj} \mid N_{rays}(\vec{x}) < \tau_{min} \}
+\end{equation}
+Những voxel có số tia quan sát bằng 0 (hoặc độ bất định/entropy cực đại) được đánh dấu là vùng khuyết $\mathcal{V}_{missing}$ và \textbf{bắt buộc để trống} trong pha huấn luyện cảnh, nhường không gian sạch sẽ cho bước tạo sinh bù khuyết ở giai đoạn sau.

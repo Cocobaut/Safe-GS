@@ -1,0 +1,104 @@
+{
+  "_comment": "Canh thu ba LERF ramen: cung pipeline figurines v2 (khong sua nguong). Ty le: khong thay san -> scale_reference dua tren chieu dai dua dung mot lan (21 cm, stat length).",
+  "scene": "ramen",
+  "run_name": "v2_ramen",
+  "S0_colmap": {
+    "_comment": "Dùng lại kết quả modal_come.py::colmap_teatime (COLMAP 3.11.1 CUDA, đúng lệnh convert.py, PINHOLE).",
+    "camera": "PINHOLE"
+  },
+  "S1_masks": {
+    "_comment": "SAM 3 thich nghi (modal_sam3.py::adaptive_scene, prompt configs/sam3/figurines_prompts.json) + hull tools/mask_hull.py (--adaptive_min_views 1 --soft_empty_weight 0.0 --clean_3d 1 --sfm_anchor 1).",
+    "source": "sam3_text",
+    "labels_dir": "ramen/sam3_masks_adaptive_v2/labels",
+    "hull_rel": "mask_hull_sam3_adap",
+    "mold_tag": "m2_ramen",
+    "s3c_tag": "r2_ramen",
+    "protect_matter": 1
+  },
+  "S2_come": {
+    "_comment": "Dùng lại modal_come.py::train_teatime (CoMe, cờ run_tnt/run_scn, 30k iter).",
+    "iterations": 30000
+  },
+  "S3_label": {
+    "_comment": "Gán Gaussian cho vật bằng vote theo đóng góp render (gradient theo màu, như paper Gradient-Driven / FlashSplat). Nhóm vật = danh sách ID mask; merge_graph đề xuất gộp ID theo đồng xuất hiện 3D. v3: nhãn SAM 3, tắt merge_graph (ID SAM 3 đã gộp sẵn, không có objects.json).",
+    "objects": {
+      "metal_plate": [
+        20
+      ],
+      "yellow_bowl": [
+        30
+      ],
+      "wavy_noodles_in_bowl": [
+        40
+      ],
+      "pork_belly": [
+        50
+      ],
+      "egg": [
+        60
+      ],
+      "seaweed": [
+        70
+      ],
+      "sake_bottle": [
+        80
+      ],
+      "sake_cup": [
+        90
+      ],
+      "glass_of_water": [
+        100
+      ],
+      "paper_napkin": [
+        110
+      ],
+      "chopsticks": [
+        120
+      ]
+    },
+    "support": {
+      "ban": [
+        10
+      ]
+    },
+    "assign_ratio": 0.5,
+    "min_total_weight": 0.0001,
+    "view_stride": 1,
+    "merge_graph": {
+      "enabled": false,
+      "view_stride": 3,
+      "min_frames_visible": 20,
+      "share": 0.3,
+      "overlap": 0.5,
+      "auto_merge_objects": true
+    },
+    "interior_knn": {
+      "enabled": true,
+      "k": 8,
+      "radius_scale": 3.0
+    },
+    "preview_frames": [
+      "frame_00001",
+      "frame_00035",
+      "frame_00070",
+      "frame_00105"
+    ]
+  },
+  "S5_objects": {
+    "_comment": "v1: xuất Gaussian từng vật + vết tiếp xúc trên mặt bàn (đóng đáy làm ở S6). Nâng cấp: SAM 3D Objects (cần quyền HF facebook/sam-3d-objects).",
+    "completion": "plane_cap"
+  },
+  "S6_mesh": {
+    "_comment": "Mesh vật: marching cubes mức 0.5 trên trường opacity GOF của riêng vật -> cắt theo mặt bàn + đóng nắp -> CoACD. Nền: bàn = hộp, sàn = mặt phẳng. Scale về mét theo chiều cao bàn.",
+    "table_height_m": 0.75,
+    "grid_res": 128,
+    "coacd_threshold": 0.05,
+    "cut_offset": 0.0,
+    "scale_reference": {
+      "object": "chopsticks",
+      "size_m": 0.21,
+      "stat": "length",
+      "_comment": "dua dung mot lan (waribashi) dai ~21 cm; opt-in. v2_ramen: S3 bo floater (cach trung vi > 3 x trung vi khoang cach) truoc khi do; v1_ramen (khong loc) cho 8.48 don vi -> ty le sai 2.8x"
+    }
+  }
+}

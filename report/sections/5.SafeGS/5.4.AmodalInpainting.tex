@@ -1,0 +1,15 @@
+\section{Lấp khuôn vật thể và phục hồi bề mặt vật chứa}
+\subsection{Lấp khuôn hoàn thiện vật thể (\texttt{s3i\_mold\_fill.py}) và đối chứng tạo sinh 3D}
+Đối với vùng trống $\mathcal{V}_{missing}$ bên trong khuôn (như đáy ly, mặt sau khuất), dữ liệu quan sát thực tế bằng 0 nên chúng tôi tiến hành đánh giá đối chứng giữa phương pháp lấp khuôn hình học và hai mô hình tạo sinh 3D SOTA:
+\begin{enumerate}
+    \item \textbf{Hướng lấp khuôn theo quy tắc hình học (\texttt{s3i\_mold\_fill.py}):} Điền các hạt Gaussian vào đúng phần thể tích trống được giới hạn bởi khuôn $\mathcal{H}_{obj}$, kết hợp chiếu phẳng đáy tiếp xúc theo mặt phẳng bàn tìm được qua thuật toán \textbf{RANSAC}.
+    \item \textbf{Đối chứng Microsoft TRELLIS~\cite{xiang2024trellis} và Amodal3R~\cite{amodal3r_2025}:} Cả hai mô hình đều xuất được $100\%$ lưới kín nước. Trong đó, Amodal3R (tận dụng mặt nạ che khuất \textit{occluder mask}) cho thể tích gọn hơn TRELLIS ở \textit{banh\_quy} ($238.9$ vs $357.8\text{ cm}^3$) và \textit{tao} ($212.3$ vs $272.8\text{ cm}^3$). Tuy nhiên, cả hai đều kém phương pháp lấp khuôn quy tắc của Safe-GS v3 ở độ khớp cảnh thực (Amodal3R trượt căn chỉnh \textit{ly\_tra} chỉ đạt $51.5\%$ độ phủ, làm dày \textit{dia} lên $3.82\text{ cm}$; TRELLIS cho PSNR thấp hơn $23.05\text{--}23.13\text{ dB}$ vs $23.29\text{ dB}$ và tỷ lệ lỗ thủng trên \textit{banh\_quy} cao hơn $9.8\%$ vs $1.65\%$).
+\end{enumerate}
+
+\subsection{Tách rời và lấy mẫu vân thật phục hồi mặt bàn (\texttt{s4d\_cutfill.py})}
+Sau khi bóc tách vật thể ra khỏi cảnh, vùng mặt bàn bên dưới bị khuyết và dính bóng đổ được xử lý qua module \texttt{s4d\_cutfill.py}. Thay vì tô màu bệt đồng nhất (\textit{flat fill}) khiến vùng bàn bị nhòe, chúng tôi bổ sung cơ chế \textbf{lấy mẫu vân bề mặt từ ảnh thật (\texttt{--texture\_fill})}: chiếu ngược các điểm trên mặt phẳng bàn RANSAC vào 177 ảnh gốc (ngoài vùng mặt nạ vật thể) để lấy mẫu vân bàn thật. Kết quả đối chứng trên vùng chân đế tiếp xúc bàn cho thấy:
+\begin{itemize}
+    \item \textbf{PSNR vùng chân đế:} Tăng vượt bậc từ $21.83\text{ dB}$ (flat fill) lên \textbf{$23.83\text{ dB}$} ($+2.00\text{ dB}$).
+    \item \textbf{Tỷ lệ độ nét (Sharpness ratio):} Tăng từ $0.627$ lên \textbf{$0.986$}, tiệm cận độ sắc nét nguyên bản.
+    \item \textbf{Độ phẳng hình học:} \textbf{$91.8\%$} bề mặt nằm trong sai số $1\text{ cm}$ quanh mặt phẳng bàn (tăng mạnh so với $48.2\%$ của v1).
+\end{itemize}

@@ -1,0 +1,38 @@
+\section{Monocular 3D Object Detection using Geometry Model}
+\subsection{Monocular 3D Object Detection with Decoupled Structured Polygon Estimation and Height-Guided Depth Estimation}
+Decoupled-3D~\cite{decouple3d} proposes a unified framework that decomposes monocular 3D object detection into structured polygon estimation and height-guided depth estimation (\Cref{fig:decouple3d_overall}) to address the ambiguity of depth recovery. Instead of relying on traditional 2D bounding boxes, it predicts the 2D projections of 3D vertices and utilizes object height priors combined with camera projection geometry to accurately recover depth.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoGeo//Decouple3D/decouple3d_overall.png}
+    \caption{\textbf{Depth estimation based on object height prior.} Combine object height H and corresponding pixel value h to estimate object depth.}
+    \label{fig:decouple3d_overall}
+\end{figure}
+
+\subsection{Objects are Different: Flexible Monocular 3D Object Detection}
+MonoFlex~\cite{MonoFlex} proposes a flexible framework for monocular 3D object detection that explicitly decouples the handling of truncated objects from normal ones to address their diverse distributions. It utilizes a decoupled edge fusion module for truncated objects and formulates depth estimation as an uncertainty-guided ensemble that adaptively combines direct regression with geometric solutions derived from keypoints.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoGeo//MonoFlex/MonoFlex_overall.png}
+    \caption{Overview of MonoFlex~\cite{MonoFlex} framework.}
+    \label{fig:MonoFlex_overall}
+\end{figure}
+\subsection{MonoGround: Detecting Monocular 3D Objects from the Ground}
+
+MonoGround~\cite{MonoGround} tackles the ill-posed depth estimation problem in monocular 3D object detection by introducing a learnable dense ground plane prior. It utilizes a depth-align training strategy and a two-stage depth inference method to leverage the geometric constraint that objects lie on the ground, enabling more accurate depth prediction without requiring extra data sources like LiDAR or stereo images. The detail is shown in ~\Cref{fig:MonoGround_overall}.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoGeo//MonoGround/MonoGround_overall.png}
+    \caption{Framework design of MonoGround~\cite{MonoGround}.}
+    \label{fig:MonoGround_overall}
+\end{figure}
+
+\subsection{MonoCD: Monocular 3D Object Detection with Complementary Depths}
+
+MonoCD~\cite{MonoCD} addresses the limited accuracy of combined depth estimates in monocular 3D object detection caused by the correlation of errors among existing depth clues. It proposes to increase depth complementarity by introducing a new complementary depth branch that utilizes global image-level cues instead of local features, and by exploiting the geometric relations between these clues. The detail is illustrated in \Cref{fig:MonoCD_overall}.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//related-works//MonoGeo//MonoCD/MonoCD_overall.png}
+    \caption{Overall framework of MonoCD~\cite{MonoCD}.}
+    \label{fig:MonoCD_overall}
+\end{figure}

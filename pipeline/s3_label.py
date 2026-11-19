@@ -64,7 +64,8 @@ def main():
     p.add_argument("--labels", type=str, required=True)
     from arguments import get_combined_args
     args = get_combined_args(p)
-    cfg = load_cfg(args.cfg)["S3_label"]
+    full_cfg = load_cfg(args.cfg)
+    cfg = full_cfg["S3_label"]
     out = Path(args.out); (out / "preview").mkdir(parents=True, exist_ok=True); (out / "gaussians").mkdir(exist_ok=True)
     S = load_scene(args, model, pipe, ss)
     g = S["g"]; freeze(g)
@@ -141,13 +142,93 @@ def main():
         lab = lab_of(view)
         if lab is None:
             return None
-        ms = [torch.isin(lab, t).float() for t in gid_t] + [torch.ones_like(lab, dtype=torch.float32)]
-        return torch.stack(ms, 0)
+        ms = [torch.isin(lab, t).float() for t in gid_t]
+        if present_norm:      # them K kenh "vat k co nhan trong view nay" (>= 20 px): mau so rieng cho tung vat
+            ms += [torch.ones_like(m) if float(m.sum()) >= 20 else torch.zeros_like(m) for m in ms]
+        return torch.stack(ms + [torch.ones_like(lab, dtype=torch.float32)], 0)
 
+    # opt-in S3_label.vote_norm = "present": ti le vat k = dong gop trong mask k / dong gop o cac view CO nhan vat k (thay vi moi view),
+    # va can cac view do chiem >= 20 % dong gop cua Gaussian. Prompt chung (vd 'yellow rubber duck') bat nham vat cu the trong mot so
+    # frame khong con thang phieu chi vi xuat hien o nhieu frame hon (cung y tuong tools/mask_hull.py --assign_mode ratio).
+    # "present_gated": nhu present nhung chi xet vat k co W_k / tong >= present_min_share (mac dinh 0.2): tranh Gaussian nen sat vat
+    # nho (it view co nhan) duoc gan vao vat do chi nho mask lem o vai view.
+    # "fg_present": chi Gaussian co tong dong gop vao tap vat tien canh (0..n_obj-1) >= assign_ratio moi duoc dung ty le present;
+    # tranh vat nho/nhieu cuop Gaussian nen, dong thoi giu uu the cua present cho vat bi vat khac chong lan (vit mu do, vat long nhau).
+    vote_norm = cfg.get("vote_norm", "all")
+    present_norm = vote_norm in ("present", "present_gated", "fg_present", "all_then_fg_present", "fg_present_hull")
+    n_obj = len(objects)
     views = S["views"][::cfg["view_stride"]]
-    Wg = accumulate(S, g, views, group_masks, len(groups) + 1, out / "partial_groups.pt")
+    K_ = len(groups)
+    Wg = accumulate(S, g, views, group_masks, (2 * K_ if present_norm else K_) + 1,
+                    out / ("partial_groups_present.pt" if present_norm else "partial_groups.pt"))
     tot = Wg[:, -1]
-    ratio = (Wg[:, :-1] / tot[:, None].clamp(min=1e-12)).cpu().numpy()
+    if present_norm:
+        Wp = Wg[:, K_:2 * K_]
+        if vote_norm in ("fg_present", "all_then_fg_present", "fg_present_hull"):
+            fg_share = Wg[:, :n_obj].sum(1) / tot.clamp(min=1e-12)
+            obj_share = Wg[:, :n_obj] / tot[:, None].clamp(min=1e-12)
+            min_obj = float(cfg.get("fg_min_obj_share", 0.05))
+            ratio_fg = torch.where(
+                (fg_share[:, None] >= float(cfg["assign_ratio"]))
+                & (Wp[:, :n_obj] >= 0.2 * tot[:, None])
+                & (obj_share >= min_obj),
+                Wg[:, :n_obj] / Wp[:, :n_obj].clamp(min=1e-12),
+                torch.zeros_like(Wp[:, :n_obj]),
+            )
+            if vote_norm == "fg_present_hull":
+                from scipy.spatial import cKDTree
+                xyz_np = g.get_xyz.detach().cpu().numpy()
+                hull_rel = full_cfg.get("S1_masks", {}).get("hull_rel", "mask_hull_sam3_adap")
+                hull_dir = out.parents[2] / hull_rel
+                gate_vox = float(cfg.get("hull_gate_vox", 2.5))
+                in_hull_t = torch.zeros((len(xyz_np), n_obj), dtype=torch.bool, device="cuda")
+                out_hull_t = torch.zeros((len(xyz_np), n_obj), dtype=torch.bool, device="cuda")
+                for k_idx, n_k in enumerate(names[:n_obj]):
+                    hpth = hull_dir / f"hull_{n_k}.ply"
+                    if not hpth.exists():
+                        in_hull_t[:, k_idx] = True
+                        continue
+                    v_h = read_ply(hpth)
+                    if len(v_h) < 4:
+                        in_hull_t[:, k_idx] = True
+                        continue
+                    hpts = np.stack([np.asarray(v_h["x"], np.float32),
+                                     np.asarray(v_h["y"], np.float32),
+                                     np.asarray(v_h["z"], np.float32)], 1)
+                    ux = np.unique(np.round(hpts[:, 0], 5))
+                    dx = np.diff(ux)
+                    vs = float(np.median(dx[dx > 1e-5])) if (dx > 1e-5).any() else 0.015
+                    if len(hpts) > 250000:
+                        hpts = hpts[::max(1, len(hpts) // 250000)]
+                    d_k, _ = cKDTree(hpts).query(xyz_np, k=1, workers=-1)
+                    d_vox = torch.from_numpy((d_k / max(vs, 1e-5)).astype(np.float32)).cuda()
+                    in_hull_t[:, k_idx] = d_vox <= gate_vox
+                    out_hull_t[:, k_idx] = d_vox > gate_vox
+                # Only allow fg_present boost when inside/near object k's 3D hull; otherwise fall back to ratio_all
+                ratio_all_fg = Wg[:, :n_obj] / tot[:, None].clamp(min=1e-12)
+                ratio_fg = torch.where(in_hull_t, ratio_fg, ratio_all_fg)
+                # Cross-object hull disambiguation: if Gaussian is outside winner k's hull but inside another candidate j's hull
+                any_in_other = (in_hull_t & (ratio_fg >= 0.20)).any(1, keepdim=True)
+                ratio_fg = torch.where(out_hull_t & any_in_other, ratio_fg * 0.25, ratio_fg)
+                log(f"fg_present_hull: gate_vox={gate_vox}, hull_dir={hull_dir}")
+            if K_ > n_obj:
+                ratio_sup = Wg[:, n_obj:K_] / tot[:, None].clamp(min=1e-12)
+                ratio_t = torch.cat([ratio_fg, ratio_sup], 1)
+            else:
+                ratio_t = ratio_fg
+            if vote_norm == "all_then_fg_present":
+                ratio_all = Wg[:, :K_] / tot[:, None].clamp(min=1e-12)
+                has_all = ratio_all.max(1, keepdim=True).values >= float(cfg["assign_ratio"])
+                ratio_t = torch.where(has_all, ratio_all, ratio_t)
+        else:
+            ratio_t = torch.where(Wp >= 0.2 * tot[:, None], Wg[:, :K_] / Wp.clamp(min=1e-12), torch.zeros_like(Wp))
+            if vote_norm == "present_gated":
+                share = Wg[:, :K_] / tot[:, None].clamp(min=1e-12)
+                ratio_t = torch.where(share >= float(cfg.get("present_min_share", 0.2)), ratio_t, torch.zeros_like(ratio_t))
+        ratio = ratio_t.cpu().numpy()
+        Wg = torch.cat([Wg[:, :K_], Wg[:, -1:]], 1)
+    else:
+        ratio = (Wg[:, :-1] / tot[:, None].clamp(min=1e-12)).cpu().numpy()
     tot_np = tot.cpu().numpy()
     best = ratio.argmax(1)
     lab = np.where((ratio.max(1) >= cfg["assign_ratio"]) & (tot_np > cfg["min_total_weight"]), best, -1).astype(np.int16)
@@ -208,6 +289,38 @@ def main():
             h_m = load_cfg(args.cfg)["S6_mesh"]["table_height_m"]
             support_info["meters_per_unit"] = h_m / height if height > 0 else None
             support_info["scale_assumption"] = f"bàn cao {h_m} m"
+        # opt-in hieu chinh ty le (S6_mesh): "meters_per_unit" (so cho san) > "scale_reference" {"object", "size_m"} (vat co kich
+        # thuoc biet truoc: chieu cao p98 - p2 theo phap tuyen ban cua Gaussian vat, opacity >= 0.5) > khoang cach ban-san.
+        # Gia tri theo san van luu o "meters_per_unit_floor" de doi chieu.
+        m6 = load_cfg(args.cfg).get("S6_mesh", {})
+        ref = m6.get("scale_reference")
+        if m6.get("meters_per_unit") or (ref and ref.get("object") in names):
+            support_info["meters_per_unit_floor"] = support_info.get("meters_per_unit")
+            if m6.get("meters_per_unit"):
+                support_info["meters_per_unit"] = float(m6["meters_per_unit"])
+                support_info["scale_assumption"] = "S6_mesh.meters_per_unit (cho san)"
+            else:
+                om = (lab == names.index(ref["object"])) & (op >= 0.5)
+                if om.sum() > 50:     # bo Gaussian lac (floater) gan nhan vat: giu diem cach trung vi < 3 x trung vi khoang cach
+                    pts = xyz[om]
+                    dc = np.linalg.norm(pts - np.median(pts, 0), axis=1)
+                    om_idx = np.nonzero(om)[0]
+                    om = np.zeros_like(om); om[om_idx[dc < 3.0 * np.median(dc)]] = True
+                hs = xyz[om] @ n_t + d_t
+                if ref.get("stat", "height") == "length":     # vat dai nam tren ban: p98 - p2 theo truc chinh trong mat ban
+                    q = xyz[om] - np.outer(hs, n_t)
+                    q = q - q.mean(0)
+                    ax = np.linalg.svd(q, full_matrices=False)[2][0] if om.sum() > 50 else n_t
+                    pr = q @ ax
+                    h_u = float(np.percentile(pr, 98) - np.percentile(pr, 2)) if om.sum() > 50 else 0.0
+                else:
+                    h_u = float(np.percentile(hs, 98) - max(np.percentile(hs, 2), 0.0)) if om.sum() > 50 else 0.0
+                if h_u > 0:
+                    support_info["meters_per_unit"] = float(ref["size_m"]) / h_u
+                    support_info["scale_assumption"] = f"{ref['object']} cao {ref['size_m']} m ({h_u:.4f} don vi, {int(om.sum())} Gaussian)"
+            f_ = support_info.get("meters_per_unit_floor")
+            if f_:
+                support_info["scale_ratio_floor_over_used"] = f_ / support_info["meters_per_unit"]
     (out / "support.json").write_text(json.dumps(support_info, indent=2))
     log(f"mặt đỡ: {json.dumps(support_info)}")
 

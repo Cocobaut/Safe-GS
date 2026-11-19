@@ -1,0 +1,132 @@
+\section{Experiments}
+\subsection{Implementation Details.}
+We trained Mono3DV on a single NVIDIA 3090 GPU for 250 epochs. We used a batch size of 8 and an initial learning rate of $2 \times 10^{-4}$. Further training specifics are detailed in ~\Cref{tab:hyper}.
+
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{Main hyperparameters of Mono3DV on KITTI Dataset.}}
+    \begin{tabular}{ll}
+         \toprule
+         \textbf{Item} & \textbf{Value} \\
+         \midrule
+         $\lambda_1$ & 1  \\
+         $\lambda_2$ & 1 \\
+         $\lambda_3$ & 0.5 \\
+         $\lambda_C$ & 0.4 \\
+         $\lambda_D$ & 0.2 \\
+         $\epsilon$ & 1 \\
+         $T$ & 85 \\
+         $N$ & 50 \\
+         $G$ & 11\\
+         $C$ & 5 \\
+         $\beta$ & 4\\
+         weight decay & 1e-4\\
+         scheduler & Step \\
+         decay rate & 0.5 \\
+         decay list & [85, 125, 165, 205] \\
+         number of feature scales & 4 \\
+         hidden dim & 256 \\
+         feedforward dim & 256 \\
+         dropout & 0.1 \\
+         nheads & 8 \\
+        number of encoder layers & 3 \\
+        number of decoder layers & 3 \\
+         encoder npoints  & 4 \\
+         decoder points & 4\\
+         \bottomrule
+    \end{tabular}
+    \label{tab:hyper}
+\end{table}
+
+\subsection{Main Results}
+\label{sec:mono3dv:main_results}
+
+\begin{table*}[h!]
+\centering
+\caption{Comparisons with state-of-the-art monocular methods on the KITTI test and val sets for the car category. We \textbf{bold} the best results and \underline{underline} the second-best results. The {\color[HTML]{3166FF} blue} refers to the gain and the {\color[HTML]{FE0000} red} is the decrease of our method.}
+\resizebox{\textwidth}{!}{%\textbf{
+\begin{tabular}{l|c|c|clcc|ccc|clcc|clcc}
+\hline
+\multicolumn{1}{c|}{} & & & \multicolumn{4}{c|}{Test, $AP_{3D|R40}$} & \multicolumn{3}{c|}{Test, $AP_{BEV|R40}$} & \multicolumn{4}{c|}{Val, $AP_{3D|R40}$} & \multicolumn{4}{c}{Val, $AP_{BEV|R40}$} \\ \cline{4-18}
+\multicolumn{1}{l|}{\multirow{-2}{*}{Methods}} & \multirow{-2}{*}{Extra data} & \multirow{-2}{*}{Reference} & \multicolumn{2}{c}{Easy} & Mod. & Hard & Easy & Mod. & Hard & \multicolumn{2}{c}{Easy} & Mod. & Hard & \multicolumn{2}{c}{Easy} & Mod. & Hard \\ \hline
+MonoDTR~\cite{MonoDTR} & & CVPR 2022 & \multicolumn{2}{c}{21.99} & 15.39 & 12.73 & 28.59 & 20.38 & 17.14 & \multicolumn{2}{c}{24.52} & 18.57 & 15.51 & \multicolumn{2}{c}{33.33} & 25.35 & 21.68 \\
+DID-M3D~\cite{DID-M3D} &  & ECCV 2022 & \multicolumn{2}{c}{24.40} & 16.29 & 13.75 & 32.95 & 22.76 & 19.83 & \multicolumn{2}{c}{22.98} & 16.12 & 14.03 & \multicolumn{2}{c}{31.10} & 22.76 & 19.50 \\
+OccupancyM3D~\cite{OccupanyM3D} & \multirow{-3}{*}{LiDAR} & CVPR 2024 & \multicolumn{2}{c}{25.55} & 17.02 & 14.79 & \underline{35.38} & 24.18 & \underline{21.37} & \multicolumn{2}{c}{26.87} & 19.96 & 17.15 & \multicolumn{2}{c}{35.72} & 26.60 & 23.68 \\ \hline
+MonoPGC~\cite{MonoPGC} &  & ICRA 2023 & \multicolumn{2}{c}{24.68} & 17.17 & 14.14 & 32.50 & 23.14 & 20.30 & \multicolumn{2}{c}{25.67} & 18.63 & 15.65 & \multicolumn{2}{c}{34.06} & 24.26 & 20.78 \\
+OPA-3D~\cite{OPA-3D} & \multirow{-2}{*}{Depth} & RAL 2023 & \multicolumn{2}{c}{24.60} & 17.05 & 14.25 & 33.54 & 22.53 & 19.22 & \multicolumn{2}{c}{24.97} & 19.40 & 16.59 & \multicolumn{2}{c}{33.80} & 25.51 & 22.13 \\ \hline
+MonoCon~\cite{MonoCon} &  & AAAI 2022 & \multicolumn{2}{c}{22.50} & 16.46 & 13.95 & 31.12 & 22.10 & 19.00 & \multicolumn{2}{c}{26.33} & 19.01 & 15.98 & \multicolumn{2}{c}{-} & - & - \\
+DEVIANT~\cite{DEVIANT} &  & ECCV 2022 & \multicolumn{2}{c}{21.88} & 14.46 & 11.89 & 29.65 & 20.44 & 17.43 & \multicolumn{2}{c}{24.63} & 16.54 & 14.52 & \multicolumn{2}{c}{32.60} & 23.04 & 19.99 \\
+MonoDDE~\cite{MonoDDE} &  & CVPR 2022 & \multicolumn{2}{c}{24.93} & 17.14 & 15.10 & 33.58 & 23.46 & 20.37 & \multicolumn{2}{c}{26.66} & 19.75 & 16.72 & \multicolumn{2}{c}{35.51} & 26.48 & 23.07 \\
+MonoUNI~\cite{MonoUNI} &  & NeurlPS 2023 & \multicolumn{2}{c}{24.75} & 16.73 & 13.49 & - & - & - & \multicolumn{2}{c}{24.51} & 17.18 & 14.01 & \multicolumn{2}{c}{-} & - & - \\
+MonoDETR~\cite{MonoDETR} &  & ICCV 2023 & \multicolumn{2}{c}{25.00} & 16.47 & 13.58 & 33.60 & 22.11 & 18.60 & \multicolumn{2}{c}{28.84} & 20.61 & 16.38 & \multicolumn{2}{c}{37.86} & 26.95 & 22.80 \\
+MonoCD~\cite{MonoCD} &  & CVPR 2024 & \multicolumn{2}{c}{25.53} & 16.59 & 14.53 & 33.41 & 22.81 & 19.57 & \multicolumn{2}{c}{26.45} & 19.37 & 16.38 & \multicolumn{2}{c}{34.60} & 24.96 & 21.51 \\
+FD3D~\cite{FD3D} & & AAAI 2024 & \multicolumn{2}{c}{25.38} & 17.12 & 14.50 & 34.20 & 23.72 & 20.76 & \multicolumn{2}{c}{28.22} & 20.23 & 17.04 & \multicolumn{2}{c}{36.98} & 26.77 & 23.16 \\
+MonoDGP~\cite{MonoDGP} & \multirow{-8}{*}{None} & CVPR 2025 & \multicolumn{2}{c}{\underline{26.35}} & \underline{18.72} & \underline{15.97} & 35.24 & \textbf{25.23} & \textbf{22.02} & \multicolumn{2}{c}{\underline{30.76}} & \underline{22.34} & \underline{19.02} & \multicolumn{2}{c}{\underline{39.40}} & \underline{28.20} & \underline{24.42} \\ \hline
+Mono3DV (Ours) & None & - & \multicolumn{2}{c}{\textbf{28.26}} & \textbf{19.20} & \textbf{16.21} & \textbf{35.77} & \underline{24.82} & \underline{21.37} & \multicolumn{2}{c}{\textbf{32.12}} & \textbf{23.55} & \textbf{20.15} & \multicolumn{2}{c}{\textbf{40.85}} & \textbf{29.24} & \textbf{25.49} \\
+Improvement & - & - & \multicolumn{2}{c}{{\color[HTML]{3166FF} +1.91}} & {\color[HTML]{3166FF} +0.48} & {\color[HTML]{3166FF} +0.24} & {\color[HTML]{3166FF} +0.39} & {\color[HTML]{FE0000} -0.41} & {\color[HTML]{FE0000} -0.65} & \multicolumn{2}{c}{{\color[HTML]{3166FF} +1.36}} & {\color[HTML]{3166FF} +1.21} & {\color[HTML]{3166FF} +1.13} & \multicolumn{2}{c}{{\color[HTML]{3166FF} +1.45}} & {\color[HTML]{3166FF} +1.04} & {\color[HTML]{3166FF} +1.07} \\ \hline
+\end{tabular}}
+\label{tab:mono3dv_main_result}
+\end{table*}
+
+\noindent\textbf{Experiment on the KITTI 3D test set.}
+As shown in \Cref{tab:mono3dv_main_result}, our Mono3DV method demonstrates superior performance on the KITTI test set compared to state-of-the-art monocular 3D object detection methods. Specifically, Mono3DV achieves a significant improvement in $\mathbf{AP_{3D}}$, surpassing the second-best method by $+1.91\%$, $+0.48\%$, and $+0.24\%$ across the three difficulty levels. Furthermore, it outperforms the second-best in $\mathbf{AP_{BEV}}$ by $0.39\%$ under the easy difficulty while maintaining competitive performance for moderate and hard cases. These results underscore the effectiveness of our proposed framework for accurate 3D object prediction from monocular images.
+
+\noindent\textbf{Experiment on the KITTI 3D val set.} We also evaluated our approach on the KITTI validation dataset. As presented in \Cref{tab:mono3dv_main_result}, our Mono3DV demonstrates superior performance compared to all existing methods. Notably, it surpasses the second-best approach under three-level difficulties by $+1.36\%$, $+1.21\%$, and $+1.13\%$ in $\mathbf{AP_{3D}}$, and by $+1.45\%$, $+1.04\%$, and $+1.07\%$ in $\mathbf{AP_{BEV}}$. These results further emphasize the effectiveness of Mono3DV.
+
+\noindent\textbf{Experiment on the Waymo Open Dataset.} As detailed in~\Cref{tab:waymo_experiment}, Mono3DV delivers state-of-the-art results at every distance range without the need for additional training data. Its exceptional performance on distant objects, in particular, highlights the method's overall effectiveness and strong generalization capabilities.
+\input{table/mono3dv/waymo_results}
+
+\noindent\textbf{Plug-and-play Experiments for Multi-view Detectors.} As shown in~\Cref{tab:nuscence_result}, for RayDN~\cite{RayDN}, our approach delivered +0.8\% NDS and +0.9\% mAP by optimizing learnable query denoising and iterative refinement strategies. Applied to OPEN~\cite{OPEN}, it achieved +1.2\% NDS and +1.1\% mAP, successfully mitigating conventional denoising's gradient vanishing issues while boosting iterative refinement. These multi-view 3D object detection results confirm the approach's effectiveness and generalizability.
+\input{table/mono3dv/nuscence_result}
+
+\noindent\textbf{Cross-dataset Experiments.} To demonstrate the robust generalization of Mono3DV, we follow~\cite{DEVIANT,MonoUNI} and directly evaluated the KITTI-trained model on the car category of the nuScenes validation set with zero additional fine-tuning. As shown in ~\Cref{tab:cross_dataset_eval}, Mono3DV consistently delivers the highest or second-highest detection accuracy across multiple metrics on the nuScenes frontal set. These findings underscore that our model maintains competitive performance despite the significant domain shift from KITTI to nuScenes. While Mono3DV performs exceptionally well, DEVIANT~\cite{DEVIANT} does occasionally yield higher results due to its specific equivariance to depth translations.
+\input{table/mono3dv/cross_dataset}
+
+\noindent\textbf{Efficiency.}
+As shown in \Cref{tab:efficiency}, our proposed Mono3DV maintains the same computational budget as the efficient baseline MonoDETR~\cite{MonoDETR} while achieving a substantial performance boost in $AP_{3D}$. Furthermore, compared to the second-best method MonoDGP~\cite{MonoDGP}, Mono3DV demonstrates clear dominance by outperforming it in both 3D detection accuracy and inference efficiency.
+\input{table/mono3dv/efficiency}
+
+
+\subsection{Ablation Study}
+\label{sec:experiments:ablation_study}
+We verify the effectiveness of each of our components and report in $\mathbf{AP_{3D}}$ for the \textit{Car} category on the KITTI validation set.
+
+\input{table/mono3dv/contrib_ablation}
+\noindent\textbf{Effectiveness of each proposed component.} In \Cref{tab:contribution_ablation}, we present an ablation study analyzing the effectiveness of our proposed components. The evaluation begins with (a) the baseline, MonoDETR~\cite{MonoDETR}, which lacks the proposed enhancement modules. We then individually assess the contribution of (b) Forward-Looking Distillation, which is integrated to enhance the iterative refinement strategy, and (c) 3D-Aware Bipartite Matching, which is designed to resolve the mismatch problem of the 2D-only approach. Furthermore, we investigate the effect of (d) adding 3D-Denoising to the training phase through Mask Separated Self-Attention. A combined model evaluates the benefit of integrating (e) both 3D-Aware Bipartite Matching and 3D-Denoising to mitigate instability caused by ill-posed 3D estimation from monocular images. Finally, we assess the impact of (f) Variational Query Denoising, which enhances the denoising effect on the set of learnable queries.
+
+Firstly, (b) Forward-Looking Distillation significantly improves detection quality, particularly in challenging scenarios (moderate and hard settings), achieving gains of $\mathbf{+0.62\%,+0.87\%}$ in $\mathbf{AP_{3D}}$, respectively. This validates the efficacy of our proposed self-distillation approach. Secondly, incorporating (c) 3D-Aware Bipartite Matching alone does not significantly enhance model performance. Thirdly, adding (d) 3D-Denoising results in performance nearly identical to (b). Fourthly, although separate integration of 3D-Aware Matching (c) and 3D-Denoising (d) does not lead to substantial gains, combining them (e) yields a significant performance increase. Compared to (b), the combined model achieves gains of $\mathbf{0.41\%, 1.24\%, 1.18\%}$ across the three difficulty levels in $\mathbf{AP_{3D}}$. Finally, integrating (f) Variational Query Denoising yields substantial improvements across all difficulty levels compared to (e), achieving gains of $\mathbf{+1.66\%, +0.77\%, +0.66\%}$, respectively. This significant improvement underscores the effectiveness of incorporating stochastic properties into the denoising process.
+
+\input{table/mono3dv/3d_weight_scheduler}
+\noindent\textbf{3D-Aware Bipartite Matching.} We explore multiple strategies for the 3D weight scheduler $\Gamma(t)$ when integrating 3D attributes into the Bipartite Matching process. As detailed in \Cref{tab:3d_weight_scheduler}, our initial design of $\Gamma(t)$ as a constant showed a rapid degradation in performance as the constant increased. Notably, setting $\Gamma(t)=1$ severely disrupted the training process, preventing model convergence. While a smaller value of $\Gamma(t)=0.1$ allowed the model to converge, its performance was still poor compared to the baseline 2D-only Bipartite Matching ($\Gamma(t)=0$). We also implemented a Hierarchical Task Learning (HTL) \cite{GUPNet}, which yielded more stable results and achieved approximately comparable performance. Finally, our proposed step scheduler demonstrated an improvement in performance over the baseline, further emphasizing the efficacy of the proposed 3D-Aware Bipartite Matching.
+
+\input{table/mono3dv/noise_query_generator_ablation}
+\noindent\textbf{3D Noisy Query.} To investigate the impact of query representation on denoising performance, we conducted ablation studies using different query types, summarized in \Cref{tab:noise_query_generator_ablation}. Initially, we followed DN-DETR~\cite{DN-DETR} and employed only category embeddings as queries. However, this approach resulted in a slight performance degradation. We hypothesized that using category information alone might be insufficient to accurately represent 3D objects, consequently reducing its effectiveness in stabilizing the Bipartite Matching process. To address this limitation, we incorporated 3D bounding box information into the query representation, as detailed in \Cref{mono3dv:3d_denoising}. This enhancement led to a significant improvement in the overall performance.
+
+\input{table/mono3dv/beta_vdn_ablation}
+\noindent\textbf{Variational Query DeNoising} For the Variational Query DeNoising, we compare the model's performance with different KL-divergence weights $\beta$. Initially, we set the $\beta$ hyperparameter to 1.0. As shown in~\Cref{tab:beta_vdn_ablation}, the performance under this configuration was only marginally different from the original denoising approach. This suggests the influence of the KL-divergence loss term was insufficient, causing the model to behave similarly to a conventional denoising autoencoder. Following the principles of $\beta$-VAE~\cite{betaVAE}, we subsequently increased $\beta$ to 4.0. This modification significantly enhanced the model's performance. Moreover, we expanded the experiment with $\beta=10.0$. However, its performance was degenerate, likely due to an overly dominant KL-divergence term leading to posterior collapse.
+
+\input{table/mono3dv/3d_weight_scheduler_step_design}
+\noindent\textbf{Hyperparameter choosing for 3D Weight Scheduler.} As shown in \Cref{tab:3d_weight_scheduler_step}, for 3D Weight Scheduler, we set a distinct value for the weight threshold $\epsilon$ and trigger epoch $T$. Optimal performance was achieved by setting the integration parameters to $\epsilon=1$ and $T=85$. This specific parameter configuration effectively integrates the 3D attribute into the Bipartite Matching algorithm at the most opportune time and with the appropriate weighting, resulting in the highest reported performance.
+
+\input{table/mono3dv/denoising_group_ablation}
+\noindent\textbf{Number of group denoising.} We explore the influence of the number of denoising groups on model performance in ~\Cref{tab:denoising_group_ablation}. As detailed in \Cref{mono3dv:overview}, we establish $C$ denoising groups for each of $K$ learnable query groups. Our findings reveal that increasing the number of denoising groups generally enhances performance. However, this improvement diminishes gradually as the number of groups grows. Consequently, we employ $C=5$ as our default setting in our experiments for appropriate with the hardware ability.
+
+\input{table/mono3dv/MLP_noisy_embedd}
+\noindent\textbf{Design of Noisy Boxes Embedding.} We studied how the number of layers in the noisy boxes embedding within our 3D Noisy Query Generator affects performance. As detailed in ~\Cref{tab:mlp_noisy_embed}, model performance steadily improved as we increased the MLP layers from one to three. However, a slight decrease in performance was observed with a 4-layer MLP, which we attribute to the limited sample size of the KITTI dataset.
+
+\newpage
+\input{table/mono3dv/fld_ablation}
+\noindent\textbf{Forward-Looking Distillation.} We analyze the efficacy of each design component of Forward-Looking distillation in ~\Cref{tab:self_distillation}. Firstly, incorporating $\mathbf{IoU}_{3D}$ weighting mechanism to ensure quality distillation knowledge from the good query, we can see that the model achieves marked performance. Moreover, using an MLP to refine the early decoder query also improves the detection quality.
+
+\input{table/mono3dv/refine_mlp_distill_ablation}
+\noindent\textbf{Design of Refinement MLP.} We explore the impact of a number of layers of the refinement MLPs in Forward-Looking Distillation on model performance. As shown in ~\Cref{tab:refine_mlp_distill}, our default 2-layer MLP delivered the best overall results. Deeper MLP configurations, however, performed poorly, likely due to the limited sample size.
+
+\subsection{Qualitative Results}
+Qualitative visualizations, shown in \Cref{fig:qualitative_results}, allow for an intuitive comparison of our approach against the baseline. Compared to other state-of-the-art methods, Mono3DV demonstrates improved localization accuracy across most objects in the scene. The integration of 3D matching is key to this performance boost, enabling the monocular 3D detector to achieve more accurate localization.
+
+\begin{figure*}[h!]
+    \centering
+    \includegraphics[width=\textwidth]{images/mono3dv/qualitative_results.pdf}
+    \caption{\textbf{Qualitative results on KITTI val set.} (a) MonoDETR~\cite{MonoDETR}. (b) MonoDGP~\cite{MonoDGP}. (c) Mono3DV (Ours). For each image set, the top row presents the camera-view visualization, while the bottom row offers the corresponding bird’s-eye view. Ground-truth bounding boxes are rendered in \textcolor{green}{green}, and predictions are shown in order: \textcolor{red}{red}, \textcolor{yellow}{yellow}, \textcolor{blue}{blue}. We also circle some objects to highlight the difference between other state-of-the-art methods and our method.}
+\label{fig:qualitative_results}
+\end{figure*}

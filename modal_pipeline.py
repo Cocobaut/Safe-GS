@@ -55,9 +55,18 @@ def _src(img):
     return img.add_local_python_source("modal_come")
 
 
+def _pipe_hash() -> str:
+    """Hash nội dung pipeline/*.py: đưa vào env của image để Modal buộc dùng bản script mới (nó có thể giữ thư mục gắn cũ)."""
+    h = hashlib.sha1()
+    for f in sorted((REPO_DIR / "pipeline").glob("*.py")):
+        h.update(f.name.encode()); h.update(f.read_bytes())
+    return h.hexdigest()[:12]
+
+
 pipe_image = _src(
     mc.come_image
     .pip_install("coacd", "trimesh", "rtree", "shapely", "mapbox-earcut")   # shapely + earcut: slice_plane(cap=True)
+    .env({"SAFE_GS_PIPE_HASH": _pipe_hash()})
     .add_local_dir(REPO_DIR / "pipeline", "/opt/pipeline")
 )
 sim_img = _src(
@@ -152,10 +161,10 @@ class _Committer:
 def _prep_come(cfg):
     """Chép COLMAP + model CoMe từ Volume ra local (cùng đường dẫn lúc train để cfg_args khớp)."""
     V = Path(VOL) / cfg["scene"]
-    data = Path("/tmp/teatime_colmap")
+    data = Path(f"/tmp/{cfg['scene']}_colmap")                  # cung duong dan luc train (modal_come.py) de cfg_args khop
     for sub in ("images", "sparse"):
         shutil.copytree(V / "colmap" / sub, data / sub, dirs_exist_ok=True)
-    local = Path("/tmp/come_out/teatime"); local.mkdir(parents=True, exist_ok=True)
+    local = Path(f"/tmp/come_out/{cfg['scene']}"); local.mkdir(parents=True, exist_ok=True)
     for name in mc.SMALL_FILES:
         shutil.copy2(V / "come" / name, local / name)
     shutil.copytree(V / "come" / "point_cloud", local / "point_cloud", dirs_exist_ok=True)
@@ -199,7 +208,7 @@ def s1(cfg: dict, force: bool = False):
     from PIL import Image
     t0 = time.time(); d = _begin(cfg, "S1", force)
     c = cfg["S1_masks"]
-    assert c["source"] == "team_sam2", "v1 chỉ hỗ trợ team_sam2 (SAM 3 cần quyền HF)"
+    assert c["source"] in ("team_sam2", "sam3_text"), f"nguồn mask chưa hỗ trợ: {c['source']}"
     lab = Path(VOL) / c["labels_dir"]
     files = sorted(lab.glob("frame_*.png"))
     ids = set()
@@ -386,6 +395,236 @@ def _s10_cpu(cfg: dict):
     vol.commit()
 
 
+@app.function(image=pipe_image, timeout=3600, **{**GPU_KW, "gpu": ["L4", "L40S"]})   # L40S cùng sm_89 với L4
+def _s10_ghost(cfg: dict):
+    """Đo 'ma' còn lại trong khoảng trống vật của nền S4b (pipeline/s10_ghost.py), để so với ObjectGS cùng định nghĩa."""
+    vol.reload()
+    _run_script(cfg, "S10", "s10_ghost.py",
+                f"--s3 {_sdir(cfg, 'S3')} --s4b {_sdir(cfg, 'S4b')} --labels {Path(VOL) / cfg['S1_masks']['labels_dir']}")
+    return json.loads((_sdir(cfg, "S10") / "ghost.json").read_text())
+
+
+S4C_VER = "v2"     # đổi khi sửa pipeline/s4c_decouple.py hoặc s10_ghost.py (Modal bỏ qua thư mục gắn vào nếu định nghĩa hàm không đổi)
+
+
+@app.function(image=pipe_image, timeout=4 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s4c(cfg: dict, tag: str, iters: int = 8000, lam_sil: float = 0.1, lam_leak: float = 0.5, assign_ratio: float = 0.5):
+    """Thử nghiệm S4c (pipeline/s4c_decouple.py): tinh chỉnh CoMe 2 nhóm với loss alpha theo nhóm, rồi đo ma bằng s10_ghost.py.
+    iters = 0: không tinh chỉnh, chỉ gán nhãn SAM 3 và đo (đối chứng v1 với nhãn SAM 3)."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S4c" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    cfgp = _sdir(cfg, "S10") / "config_used.json"
+    labels = Path(VOL) / cfg["scene"] / "sam3_masks" / "labels"
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s4c_{tag}.log"
+    env = f"PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline"
+    common = f"-m {local} -s {data} --iteration {cfg['S2_come']['iterations']} --cfg {cfgp}"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"{env}/s4c_decouple.py {common} --out {out} --labels {labels} "
+                          f"--support {_sdir(cfg, 'S3') / 'support.json'} --iters {iters} --lam_sil {lam_sil} "
+                          f"--lam_leak {lam_leak} --assign_ratio {assign_ratio}", "/opt/CoMe", log)
+        if not (out / "ghost" / "ghost.json").exists():
+            mc._run_train(f"{env}/s10_ghost.py {common} --out {out / 'ghost'} --s3 {out / 'S3like'} "
+                          f"--s4b {out / 'S4like'} --labels {labels} --occluder_ids 20,30", "/opt/CoMe", log)
+    vol.commit()
+    return {"tag": tag, "metrics": json.loads((out / "metrics.json").read_text()),
+            "ghost": json.loads((out / "ghost" / "ghost.json").read_text())}
+
+
+@app.function(image=pipe_image, timeout=2 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s4d(cfg: dict, tag: str, src_tag: str = "ctrl", cut_dilate: int = 2, reach: float = 2.0, low_cm: float = 3.0,
+         fill_dilate: int = 4, protect: int = 1, ft_iters: int = 0, lr_scale: float = 0.5, ft_mode: str = "inpaint",
+         freeze_region: int = 0, freeze_dilate: int = 6, fill_grid: float = 0.01, texture_fill: int = 0, tex_scale: float = 0.5,
+         code_rel: str = ""):
+    """Thử nghiệm S4d (pipeline/s4d_cutfill.py): cắt Gaussian nền trong vết chân + plane_fill, đo ma bằng s10_ghost.py."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    src = _root(cfg) / "S4c" / src_tag
+    out = _root(cfg) / "S4d" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    cfgp = _sdir(cfg, "S10") / "config_used.json"
+    labels = Path(VOL) / cfg["scene"] / "sam3_masks" / "labels"
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s4d_{tag}.log"
+    code = str(Path(VOL) / code_rel) if code_rel else "/opt/pipeline"
+    env = f"PYTHONPATH=/opt/CoMe:{code} python {code}"
+    common = f"-m {local} -s {data} --iteration {cfg['S2_come']['iterations']} --cfg {cfgp}"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"{env}/s4d_cutfill.py --texture_fill {texture_fill} --tex_scale {tex_scale} {common} --out {out} --src {src} --labels {labels} "
+                          f"--cut_dilate {cut_dilate} --reach {reach} --low_cm {low_cm} --fill_dilate {fill_dilate} "
+                          f"--protect {protect} --ft_iters {ft_iters} --lr_scale {lr_scale} --ft_mode {ft_mode} --freeze_region {freeze_region} --freeze_dilate {freeze_dilate} --fill_grid {fill_grid} "
+                          f"--inpainted {_sdir(cfg, 'S4a') / 'inpainted'}",
+                          "/opt/CoMe", log)
+        if not (out / "ghost" / "ghost.json").exists():
+            mc._run_train(f"{env}/s10_ghost.py {common} --out {out / 'ghost'} --s3 {out / 'S3like'} "
+                          f"--s4b {out / 'S4like'} --labels {labels} --occluder_ids 20,30", "/opt/CoMe", log)
+    vol.commit()
+    return {"tag": tag, "metrics": json.loads((out / "metrics.json").read_text()),
+            "ghost": json.loads((out / "ghost" / "ghost.json").read_text())}
+
+
+@app.function(image=pipe_image, timeout=3 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s3i(cfg: dict, tag: str, base_tag: str, mold_tag: str, code_rel: str = "", trellis_tag: str = "", image_inpaint: int = 0,
+         inpaint_iters: int = 600):
+    """Bước 2 bản cơ sở: lấp khuôn bằng Gaussian dẹt (pipeline/s3i_mold_fill.py), đo ảnh test + camera ảo quanh vật.
+    code_rel: thư mục code pipeline trên Volume (tools/push_code.py) để chắc chắn chạy đúng bản script; rỗng = /opt/pipeline."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S3i" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s3i_{tag}.log"
+    code = str(Path(VOL) / code_rel) if code_rel else "/opt/pipeline"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"PYTHONPATH=/opt/CoMe:{code} python {code}/s3i_mold_fill.py -m {local} -s {data} "
+                          f"--iteration {cfg['S2_come']['iterations']} --cfg {_sdir(cfg, 'S3') / 'config_used.json'} --out {out} "
+                          f"--s3 {_sdir(cfg, 'S3')} --mold {_root(cfg) / 'S3m' / mold_tag} --base {_root(cfg) / 'S3c' / base_tag} "
+                          f"--support_graph {Path(VOL) / cfg['scene'] / 'support_graph' / 'graph.json'} "
+                          f"--image_inpaint {image_inpaint} --inpaint_iters {inpaint_iters}"
+                          + (f" --trellis_dir {Path(VOL) / cfg['scene'] / 'trellis_out' / trellis_tag} "
+                             f"--trellis_grid {Path(VOL) / cfg['scene'] / 'trellis_in'}" if trellis_tag else ""),
+                          "/opt/CoMe", log)
+    vol.commit()
+    return json.loads((out / "metrics.json").read_text())
+
+
+@app.function(image=pipe_image, timeout=4 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s3c(cfg: dict, tag: str, lam_bound: float = 1.0, iters: int = 5000, mold_tag: str = "v1",
+         lam_leak: float = 0.0, lam_cover: float = 0.0, aux_every: int = 2, leak_norm: str = "image"):
+    """Tinh chỉnh Gaussian bị giới hạn trong khung chặt (pipeline/s3c_constrain.py)."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S3c" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s3c_{tag}.log"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline/s3c_constrain.py -m {local} -s {data} "
+                          f"--iteration {cfg['S2_come']['iterations']} --cfg {_sdir(cfg, 'S3') / 'config_used.json'} --out {out} "
+                          f"--s3 {_sdir(cfg, 'S3')} --mold {_root(cfg) / 'S3m' / mold_tag} "
+                          f"--labels {Path(VOL) / cfg['S1_masks']['labels_dir']} --lam_bound {lam_bound} --iters {iters} "
+                          f"--lam_leak {lam_leak} --lam_cover {lam_cover} --aux_every {aux_every} --leak_norm {leak_norm}",
+                          "/opt/CoMe", log)
+    vol.commit()
+    return json.loads((out / "metrics.json").read_text())
+
+
+@app.function(image=pipe_image, timeout=3 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s3m(cfg: dict, tag: str = "v1", tol_cm: float = 1.0, min_vis: int = 3, hull_rel: str = "mask_hull_sam3", protect_vis: int = 3,
+         da3_rel: str = "", protect_matter: int = 0):
+    """Khung chặt + khuôn bằng bộ render (pipeline/s3m_mold.py): đóng góp Gaussian + khoét hull theo ảnh độ sâu."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S3m" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s3m_{tag}.log"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline/s3m_mold.py -m {local} -s {data} "
+                          f"--iteration {cfg['S2_come']['iterations']} --cfg {_sdir(cfg, 'S3') / 'config_used.json'} --out {out} "
+                          f"--s3 {_sdir(cfg, 'S3')} --hulls {Path(VOL) / cfg['scene'] / hull_rel} "
+                          f"--labels {Path(VOL) / cfg['S1_masks']['labels_dir']} --tol_cm {tol_cm} --min_vis {min_vis} --protect_vis {protect_vis} "
+                          f"--protect_matter {protect_matter}"
+                          + (f" --da3_dir {Path(VOL) / cfg['scene'] / da3_rel}" if da3_rel else ""),
+                          "/opt/CoMe", log)
+    vol.commit()
+    return json.loads((out / "metrics.json").read_text())
+
+
+@app.function(image=pipe_image, timeout=2 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _unseen_check(cfg: dict, vis_rel: str = "visibility_mold", tag: str = "v1"):
+    """Kiểm chứng tầm nhìn (pipeline/s3v_unseen_check.py): bỏ Gaussian vật không camera nào thấy, so render với đối chứng."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S3v" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s3v_{tag}.log"
+    with _Committer():
+        if not (out / "metrics.json").exists():
+            mc._run_train(f"PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline/s3v_unseen_check.py -m {local} -s {data} "
+                          f"--iteration {cfg['S2_come']['iterations']} --cfg {_sdir(cfg, 'S3') / 'config_used.json'} --out {out} "
+                          f"--vis_dir {Path(VOL) / cfg['scene'] / vis_rel} --labels {Path(VOL) / cfg['scene'] / 'sam3_masks' / 'labels'}",
+                          "/opt/CoMe", log)
+    vol.commit()
+    return json.loads((out / "metrics.json").read_text())
+
+
+@app.function(image=light_img, volumes={VOL: vol}, timeout=3600)
+def _clone_stages(cfg: dict, src_run: str, stages: list):
+    """Chép các stage đã xong (không phụ thuộc config mới) từ run src_run sang run của cfg, để khỏi chạy lại (vd S0, S2)."""
+    vol.reload()
+    src = Path(VOL) / cfg["scene"] / "pipeline" / src_run
+    out = {}
+    for st in stages:
+        d = _sdir(cfg, st)
+        if not d.exists():
+            shutil.copytree(src / DIRNAME[st], d)
+        out[st] = _done(cfg, st)
+    vol.commit()
+    return out
+
+
+@app.function(image=light_img, volumes={VOL: vol}, timeout=3600)
+def _mk_v2(cfg: dict, s4d_tag: str, new_run: str = "v2"):
+    """Tạo run mới = bản sao run hiện tại, thay S4b/background_finetuned.ply bằng nền S4d/<tag>; xoá S9, S10 để chạy lại."""
+    vol.reload()
+    src, dst = _root(cfg), Path(VOL) / cfg["scene"] / "pipeline" / new_run
+    dst.mkdir(parents=True, exist_ok=True)
+    for sub in sorted(p.name for p in src.iterdir() if p.is_dir() and p.name not in ("S4c", "S4d", "S9_render", "S10_eval")):
+        if not (dst / sub).exists():
+            shutil.copytree(src / sub, dst / sub)
+    b = dst / DIRNAME["S4b"]
+    shutil.copy2(Path(VOL) / cfg["scene"] / "pipeline" / cfg["run_name"] / "S4d" / s4d_tag / "S4like" / "background_finetuned.ply",
+                 b / "background_finetuned.ply")
+    (b / "NOTE.txt").write_text(f"background_finetuned.ply thay bang S4d/{s4d_tag} cua run {cfg['run_name']}" + chr(10))
+    for st in ("S9", "S10"):
+        shutil.rmtree(dst / DIRNAME[st], ignore_errors=True)
+    vol.commit()
+    return sorted(p.name for p in dst.iterdir())
+
+
+@app.function(image=pipe_image, timeout=3 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _s9v3(cfg: dict, tag: str, code_rel: str, filled_tag: str = "i_r1v3k", mold_tag: str = "v3",
+          bg_rel: str = "pipeline/v1/S4d/e8/S4like/background_finetuned.ply", lift_rel: str = "pipeline/v3_sam3/lift_v4",
+          eval_tag: str = ""):
+    """Render Gaussian cả cảnh theo quỹ đạo MuJoCo (pipeline/s9v3_render.py), code lấy từ Volume (tools/push_code.py)."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "S9v3" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    log = Path(VOL) / cfg["scene"] / "logs" / f"s9v3_{tag}.log"
+    code = str(Path(VOL) / code_rel)
+    V = Path(VOL) / cfg["scene"]
+    with _Committer():
+        mc._run_train(f"PYTHONPATH=/opt/CoMe:{code} python {code}/s9v3_render.py -m {local} -s {data} "
+                      f"--iteration {cfg['S2_come']['iterations']} --cfg {_sdir(cfg, 'S3') / 'config_used.json'} --out {out} "
+                      f"--bg {V / bg_rel} --filled {_root(cfg) / 'S3i' / filled_tag} --frames {_root(cfg) / 'S3m' / mold_tag / 'frame'} "
+                      f"--s3 {_sdir(cfg, 'S3')}" + (f" --lift {V / lift_rel}" if lift_rel else "")
+                      + (f" --eval_tag {eval_tag}" if eval_tag else ""), "/opt/CoMe", log)
+    vol.commit()
+    return sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file())
+
+
+@app.function(image=pipe_image, timeout=3 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _full_mesh(cfg: dict, tag: str = "vox010", voxel_size: float = 0.01):
+    """Mesh bề mặt CẢ cảnh từ CoMe 30k (TSDF của tác giả: Based_Model/CoMe/extract_mesh_tsdf.py), đơn vị cảnh COLMAP."""
+    vol.reload()
+    data, local = _prep_come(cfg)
+    out = _root(cfg) / "FullMesh" / tag
+    out.mkdir(parents=True, exist_ok=True)
+    log = Path(VOL) / cfg["scene"] / "logs" / f"fullmesh_{tag}.log"
+    with _Committer():
+        if not (out / "tsdf.ply").exists():
+            mc._run_train(f"python extract_mesh_tsdf.py -m {local} -s {data} --iteration {cfg['S2_come']['iterations']} "
+                          f"--voxel_size {voxel_size}", "/opt/CoMe", log)
+            src = local / "test" / f"ours_{cfg['S2_come']['iterations']}" / "tsdf.ply"
+            shutil.copy2(src, out / "tsdf.ply")
+    vol.commit()
+    return {"tag": tag, "voxel_size": voxel_size, "MB": round((out / "tsdf.ply").stat().st_size / 1e6, 1)}
+
+
 @app.function(image=pipe_image, timeout=3 * 3600, **GPU_KW)
 def s10(cfg: dict, force: bool = False):
     """Đo lường mọi stage (pipeline/s10_*.py). Cần LERF-Mask teatime trên Volume tại S10_eval.lerf_dir."""
@@ -503,3 +742,181 @@ def pull(config: str = "configs/pipeline/teatime_v1.json", with_ply: bool = Fals
                 f.write(chunk)
         n += 1
     print(f"Đã tải {n} file -> {local_root}")
+
+
+@app.local_entrypoint()
+def v5chain(config: str = "configs/pipeline/teatime_v3_sam3.json", mold_tag: str = "v5_da3", s3c_tag: str = "r1v5",
+            s3i_tag: str = "i_r1v5", lam_bound: float = 0.1, iters: int = 5000, code_rel: str = ""):
+    """S3c (ép khung + lọc khởi động) -> S3i (lấp khuôn) trên khuôn mold_tag. Mỗi hàm tự bỏ qua nếu metrics.json đã có (resume)."""
+    cfg = _load_cfg(config)
+    r = _s3c.remote(cfg, tag=s3c_tag, lam_bound=lam_bound, iters=iters, mold_tag=mold_tag)
+    print("S3C_METRICS", json.dumps(r, ensure_ascii=False)[:6000], flush=True)
+    r = _s3i.remote(cfg, tag=s3i_tag, base_tag=s3c_tag, mold_tag=mold_tag, code_rel=code_rel)
+    print("S3I_METRICS", json.dumps(r, ensure_ascii=False)[:8000], flush=True)
+
+
+@app.local_entrypoint()
+def s4dtex(config: str = "configs/pipeline/teatime_v1.json", code_rel: str = "", variants: str = "e8r,e8g4,e8tex",
+           gpu: str = "A100-80GB"):
+    """Thí nghiệm lấp texture ảnh thật: cùng tham số e8 (cắt vết chân + bảo vệ cừu/gấu + lấp + tinh chỉnh ảnh thật masked,
+    đóng băng Gaussian lấp), khác nhau ở cách lấp. Chạy song song, mỗi biến thể tự bỏ qua nếu đã có metrics.json."""
+    cfg = _load_cfg(config)
+    e8 = dict(src_tag="ctrl", cut_dilate=2, reach=2.0, low_cm=3.0, fill_dilate=4, protect=1, ft_iters=3000, lr_scale=0.5,
+              ft_mode="masked", freeze_region=1, freeze_dilate=0, code_rel=code_rel)
+    V = {"e8r": dict(fill_grid=0.01, texture_fill=0),                     # tái lập e8 (lấp màu vành, ô 1 cm)
+         "e8g4": dict(fill_grid=0.004, texture_fill=0),                   # đối chứng: ô 4 mm, màu vành
+         "e8tex": dict(fill_grid=0.004, texture_fill=1, tex_scale=0.5)}   # ô 4 mm, texture ảnh thật
+    fn = _s4d.with_options(gpu=gpu) if gpu else _s4d        # bước vote bảo vệ cừu/gấu cần 51.9 GiB một lần cấp phát -> L40S (44 GiB) OOM
+    calls = {t: fn.spawn(cfg, tag=t, **e8, **V[t]) for t in variants.split(",")}
+    for t, c in calls.items():
+        try:
+            r = c.get()
+            print("S4D_RESULT", t, json.dumps(r, ensure_ascii=False)[:5000], flush=True)
+        except Exception as ex:
+            print("S4D_FAIL", t, repr(ex)[:2000], flush=True)
+
+
+@app.local_entrypoint()
+def mold(config: str = "configs/pipeline/teatime_v3_sam3.json", stage: str = "s3m", tag: str = "v4",
+         mold_tag: str = "v4", lam_bound: float = 1.0, iters: int = 5000, protect_vis: int = 3, da3_rel: str = ""):
+    """Chạy khung + khuôn (stage s3m: pipeline/s3m_mold.py -> S3m/<tag>) hoặc tinh chỉnh khung (s3c: S3c/<tag> dùng S3m/<mold_tag>)."""
+    cfg = _load_cfg(config)
+    if stage == "s3m":
+        r = _s3m.remote(cfg, tag=tag, protect_vis=protect_vis, da3_rel=da3_rel)
+    elif stage == "s3c":
+        r = _s3c.remote(cfg, tag=tag, lam_bound=lam_bound, iters=iters, mold_tag=mold_tag)
+    else:
+        raise SystemExit(f"stage không hợp lệ: {stage}")
+    print(json.dumps(r, indent=1, ensure_ascii=False)[:4000])
+
+
+@app.local_entrypoint()
+def s9v5(config: str = "configs/pipeline/teatime_v3_sam3.json", code_rel: str = "", tag: str = "r_v5",
+         filled_tag: str = "i_r1v5", mold_tag: str = "v5_da3", lift_rel: str = "pipeline/v3_sam3/lift_v5_com"):
+    """S9v3 cho chuỗi v5_da3: nền e8 + vật S3i/<filled_tag> theo quỹ đạo MuJoCo của lift_rel."""
+    r = _s9v3.remote(_load_cfg(config), tag=tag, code_rel=code_rel, filled_tag=filled_tag, mold_tag=mold_tag, lift_rel=lift_rel)
+    print("S9V3_FILES", len(r), r[:60])
+
+
+@app.local_entrypoint()
+def s9final(config: str = "configs/pipeline/teatime_v3_sam3.json", code_rel: str = "", tag: str = "final_v3_tex",
+            filled_tag: str = "i_r1v3k", mold_tag: str = "v3", lift_rel: str = "",
+            bg_rel: str = "pipeline/v1/S4d/e8tex/S4like/background_finetuned.ply"):
+    """Chot Winning Stack: nen S4d/e8tex (--texture_fill) + vat S3i/i_r1v3k (khung S3m v3); do PSNR / SSIM / LPIPS 23 view test; lift_rel khac rong thi render them quy dao MuJoCo."""
+    r = _s9v3.remote(_load_cfg(config), tag=tag, code_rel=code_rel, filled_tag=filled_tag, mold_tag=mold_tag, lift_rel=lift_rel,
+                     bg_rel=bg_rel, eval_tag=tag)
+    print("S9V3_FILES", len(r), r[:80])
+
+
+@app.function(image=light_img, volumes={VOL: vol}, timeout=1800)
+def _copy_rel(src_rel: str, dst_rel: str) -> bool:
+    """Chep 1 file tren Volume (vd contrib.npy: chi phu thuoc canh CoMe, khong phu thuoc nhan / khung). Bo qua neu dich da co."""
+    vol.reload()
+    src, dst = Path(VOL) / src_rel, Path(VOL) / dst_rel
+    if dst.exists():
+        return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    vol.commit()
+    return True
+
+
+@app.local_entrypoint()
+def v6chain(config: str = "configs/pipeline/teatime_v6_adap.json", base_config: str = "configs/pipeline/teatime_v3_sam3.json",
+            mold_tag: str = "v6_adap", hull_rel: str = "mask_hull_sam3_adap", s3c_tag: str = "r1v6", lam_bound: float = 0.1,
+            iters: int = 5000, base_mold: str = "v3", base_s3c: str = "r1v3", protect_vis: int = 3, protect_matter: int = 0,
+            ablate: str = "", stop_after_s3m: int = 0):
+    """v6: S3 (nhan Gaussian tu mask cong thich nghi) -> S3m/<mold_tag> (hull tu mask moi) -> S3c/<s3c_tag>; song song chay lai
+    doi chung S3c/<base_s3c> tren khung v3 (cung code, cung lam_bound) de co final.ply so sanh. Moi buoc tu bo qua khi da xong."""
+    cfg, base = _load_cfg(config), _load_cfg(base_config)
+    print("S3", s3.remote(cfg), flush=True)
+    contrib = f"{base['scene']}/pipeline/{base['run_name']}/S3m/v5_da3/contrib.npy"
+    abl_tags = [a_.split(":")[0] for a_ in ablate.split(",") if a_]
+    for c_, t_ in [(cfg, mold_tag), (base, base_mold)] + [(cfg, t_) for t_ in abl_tags]:
+        print("contrib", t_, _copy_rel.remote(contrib, f"{c_['scene']}/pipeline/{c_['run_name']}/S3m/{t_}/contrib.npy"), flush=True)
+    base_call = None if stop_after_s3m else _s3c.spawn(base, tag=base_s3c, lam_bound=lam_bound, iters=iters, mold_tag=base_mold)
+    # ablate: "tag:protect_vis:protect_matter,..." extra S3m variants on the same S3 / hull (frames only, no S3c)
+    abl = [(a_.split(":")[0], int(a_.split(":")[1]), int(a_.split(":")[2])) for a_ in ablate.split(",") if a_]
+    abl_calls = [_s3m.spawn(cfg, tag=t_, hull_rel=hull_rel, protect_vis=pv_, protect_matter=pm_) for t_, pv_, pm_ in abl]
+    r = _s3m.remote(cfg, tag=mold_tag, hull_rel=hull_rel, protect_vis=protect_vis, protect_matter=protect_matter)
+    print("S3M_METRICS", json.dumps(r, ensure_ascii=False)[:6000], flush=True)
+    for (t_, _, _), c_ in zip(abl, abl_calls):
+        print("S3M_ABLATE", t_, json.dumps(c_.get().get("B_carve", {}).get("protect_matter")), flush=True)
+    if stop_after_s3m:
+        return
+    r = _s3c.remote(cfg, tag=s3c_tag, lam_bound=lam_bound, iters=iters, mold_tag=mold_tag)
+    print("S3C_METRICS", json.dumps({k: r[k] for k in ("before", "after", "frame_check") if k in r}, ensure_ascii=False)[:8000], flush=True)
+    rb = base_call.get()
+    print("S3C_BASE_METRICS", json.dumps({k: rb[k] for k in ("before", "after", "frame_check") if k in rb}, ensure_ascii=False)[:8000], flush=True)
+
+
+@app.function(image=pipe_image, timeout=3 * 3600, **{**GPU_KW, "gpu": ["L40S", "L4"]})
+def _inspect_render(cfg: dict, tag: str, runs: list, objects: str = "ly_tra,khan_giay,coc_su,dia,banh_quy,tao,tui_banh,goi_keo,thia,all",
+                    n_frames: int = 72, size: int = 512):
+    """Orbit Gaussian vat sau S3c (pipeline/s3c_inspect_render.py). runs: ["NHAN=<rel S3c>:<rel S3m>", ...] (rel theo Volume)."""
+    vol.reload()
+    out = _root(cfg) / "inspect" / tag
+    if (out / "stats.json").exists():
+        return json.loads((out / "stats.json").read_text())
+    data, local = _prep_come(cfg)
+    out.mkdir(parents=True, exist_ok=True)
+    rr = " ".join(f"--run {r.split('=')[0]}={Path(VOL) / r.split('=')[1].split(':')[0]}:{Path(VOL) / r.split('=')[1].split(':')[1]}"
+                  for r in runs)
+    with _Committer():
+        mc._run_train(f"PYTHONPATH=/opt/CoMe:/opt/pipeline python /opt/pipeline/s3c_inspect_render.py -m {local} -s {data} "
+                      f"--iteration {cfg['S2_come']['iterations']} --cfg {_sdir(cfg, 'S3') / 'config_used.json'} --out {out} "
+                      f"--s3 {_sdir(cfg, 'S3')} {rr} --objects {objects} --n_frames {n_frames} --size {size}",
+                      "/opt/CoMe", Path(VOL) / cfg["scene"] / "logs" / f"inspect_{tag}.log")
+    vol.commit()
+    return json.loads((out / "stats.json").read_text())
+
+
+@app.local_entrypoint()
+def inspect(config: str = "configs/pipeline/teatime_v6_adap.json", tag: str = "v6_vs_v3",
+            runs: str = "v3_sam3=teatime/pipeline/v3_sam3/S3c/r1v3:teatime/pipeline/v3_sam3/S3m/v3,"
+                        "v6_adap=teatime/pipeline/v6_adap/S3c/r1v6:teatime/pipeline/v6_adap/S3m/v6_adap",
+            n_frames: int = 72):
+    r = _inspect_render.remote(_load_cfg(config), tag, runs.split(","), n_frames=n_frames)
+    print("INSPECT_STATS", json.dumps(r, ensure_ascii=False)[:6000], flush=True)
+
+
+@app.local_entrypoint()
+def leakrun(config: str = "configs/pipeline/teatime_v8_hullv4.json", tag: str = "r1v8_leak", mold_tag: str = "v8_hullv4",
+            lam_bound: float = 0.1, lam_leak: float = 0.05, lam_cover: float = 0.02, aux_every: int = 2, iters: int = 5000,
+            leak_norm: str = "image"):
+    """Track A: S3c voi L_leak + L_cover (alpha rieng tung vat so voi mask SAM 3 tren view train) tren khung mold_tag."""
+    r = _s3c.remote(_load_cfg(config), tag=tag, lam_bound=lam_bound, iters=iters, mold_tag=mold_tag,
+                    lam_leak=lam_leak, lam_cover=lam_cover, aux_every=aux_every, leak_norm=leak_norm)
+    print("S3C_METRICS", json.dumps({k: r[k] for k in r if k != "frame_check"}, ensure_ascii=False)[:9000], flush=True)
+
+
+@app.local_entrypoint()
+def imgfill(config: str = "configs/pipeline/teatime_v8_hullv4.json", tag: str = "i_r1v8_img", base_tag: str = "r1v8_leak",
+            mold_tag: str = "v8_hullv4", image_inpaint: int = 1, inpaint_iters: int = 600):
+    """Track B: S3i lap khuon + tinh chinh Gaussian lap theo anh camera ao da inpaint (pipeline/s3i_mold_fill.py --image_inpaint)."""
+    r = _s3i.remote(_load_cfg(config), tag=tag, base_tag=base_tag, mold_tag=mold_tag, image_inpaint=image_inpaint,
+                    inpaint_iters=inpaint_iters)
+    print("S3I_METRICS", json.dumps(r, ensure_ascii=False)[:12000], flush=True)
+
+
+@app.local_entrypoint()
+def figchain(config: str = "configs/pipeline/figurines_v1.json", lam_bound: float = 0.1, lam_leak: float = 0.05,
+             lam_cover: float = 0.02, iters: int = 5000, stop_after: str = "", s3i_tag: str = "", image_inpaint: int = 1):
+    """Track C: canh thu hai chay dung chuoi chung: S3 (gan nhan Gaussian) -> S3m/<mold_tag> (hull S1_masks.hull_rel, protect_vis 3,
+    protect_matter) -> S3c/<s3c_tag> (lam_bound + L_leak + L_cover). Can <scene>/come (CoMe 30k) + hull da put len Volume."""
+    cfg = _load_cfg(config)
+    c = cfg["S1_masks"]
+    print("S3", s3.remote(cfg), flush=True)
+    if stop_after == "S3":
+        return
+    r = _s3m.remote(cfg, tag=c["mold_tag"], hull_rel=c["hull_rel"], protect_vis=3, protect_matter=int(c.get("protect_matter", 1)))
+    print("S3M_METRICS", json.dumps(r, ensure_ascii=False)[:8000], flush=True)
+    if stop_after == "S3m":
+        return
+    r = _s3c.remote(cfg, tag=c["s3c_tag"], lam_bound=lam_bound, iters=iters, mold_tag=c["mold_tag"],
+                    lam_leak=lam_leak, lam_cover=lam_cover)
+    print("S3C_METRICS", json.dumps({k: r[k] for k in r}, ensure_ascii=False)[:12000], flush=True)
+    if s3i_tag:     # S3i: lap khuon (+ inpaint anh camera ao) tren ket qua S3c
+        fn = _s3i.with_options(gpu="L40S")     # inpaint 32 camera ao: L4 22 GB OOM (figurines v3)
+        r = fn.remote(cfg, tag=s3i_tag, base_tag=c["s3c_tag"], mold_tag=c["mold_tag"], image_inpaint=image_inpaint)
+        print("S3I_METRICS", json.dumps(r, ensure_ascii=False)[:12000], flush=True)

@@ -1,0 +1,13 @@
+\section{Tập dữ liệu LERF và cảnh thực tế Teatime}
+\textbf{LERF} (Language Embedded Radiance Fields)~\cite{kerr2023lerf} là công trình nghiên cứu của nhóm tác giả tại UC Berkeley (ICCV 2023 Oral), giới thiệu phương pháp nhúng biểu diễn ngôn ngữ tự nhiên (từ CLIP) trực tiếp vào trường bức xạ thần kinh 3D (NeRF) nhằm phục vụ truy vấn vật thể bằng câu lệnh văn bản mở (\textit{open-vocabulary 3D queries}).
+
+\subsection{Đặc điểm bộ dữ liệu LERF và LERF-Mask}
+Khác với các tập dữ liệu mô phỏng tĩnh, bộ dữ liệu LERF được thu thập trực tiếp từ các cảnh chụp thực tế bằng điện thoại cầm tay trong môi trường đời thực (bàn ăn, bếp, bàn làm việc). Trong đó, cảnh \textbf{teatime} (tiệc trà trên mặt bàn) là kịch bản trọng tâm để đánh giá bài toán định vị và tách vật thể trong đề tài này:
+\begin{itemize}
+    \item \textbf{Dữ liệu đầu vào:} Gồm 180 ảnh chụp RGB đa góc nhìn quanh mặt bàn tiệc trà, chứa nhiều vật thể rắn tiếp xúc trực tiếp với mặt bàn và vật chứa (cốc sứ, ly trà, quả táo, đĩa, túi bánh, thìa, gấu bông).
+    \item \textbf{Hiệu chuẩn COLMAP trong thực nghiệm:} Khi chạy tái tạo cấu trúc từ chuyển động (SfM) trên \textit{teatime}, hệ thống đăng ký thành công 177/180 ảnh với sai số tái chiếu trung bình là $0.66\text{ px}$ và tạo ra $24{,}685$ điểm 3D (độ dài track trung bình $4.74$).
+    \item \textbf{Chuẩn đánh giá LERF-Mask:} Gồm 10 câu lệnh văn bản truy vấn (\textit{prompts}) tương ứng với các vật thể trên bàn (táo, túi bánh, cốc, bánh trên đĩa, khăn giấy, đĩa, cừu, thìa, gấu, ly trà) kèm mặt nạ phân đoạn chuẩn (\textit{ground-truth masks}) trên các góc nhìn kiểm thử.
+\end{itemize}
+
+\subsection{Thách thức đặc thù của cảnh Teatime}
+Cảnh \textit{teatime} phơi bày trọn vẹn các khó khăn thực tế cho bài toán tương tác vật lý: các vật thể đặt sát nhau gây che khuất lẫn nhau; một số vật dẹt (như túi bánh, đĩa) có vân bề mặt bị nung chảy trực tiếp vào mặt bàn; và toàn bộ phần đáy tiếp xúc của cốc sứ, ly trà đều bị mặt bàn che khuất hoàn toàn khỏi tầm nhìn của 180 camera.

@@ -1,0 +1,78 @@
+\section{From RNN to Transformer}
+
+Sequence modeling underpins many deep learning tasks, including machine translation and sentiment analysis. This section traces the evolution of sequence models from Recurrent Neural Networks (RNNs) to Long Short-Term Memory (LSTM) networks and finally to the Transformer.
+
+\subsection{Recurrent Neural Networks (RNN)}
+RNNs process sequential data by maintaining a hidden state $h^{(t)}$ that summarizes previous inputs. Given an input sequence $x^{(t)} \in \mathbb{R}^D$, the hidden state and output $y^{(t)} \in \mathbb{R}^C$ are computed recurrently as:
+\begin{equation}
+    h^{(t)} = f_h(W_{xh}x^{(t)} + W_{hh}h^{(t-1)} + b_h), \quad y^{(t)} = f_y(W_{hy}h^{(t)} + b_y)
+\end{equation}
+where $W_{xh}, W_{hh}, W_{hy}$ are learnable weight matrices, $b$ are biases, and $f$ are activation functions (typically $\tanh$).
+
+\subsubsection{Gradient Vanishing and Exploding}
+A key limitation of standard RNNs is the difficulty of learning long-term dependencies. The gradient of the loss $L^{(t)}$ with respect to $W_{hh}$ involves a product of Jacobians across time steps:
+\begin{equation}
+    \frac{\partial L^{(t)}}{\partial W_{hh}} = \frac{\partial L^{(t)}}{\partial h^{(t)}} \left( \prod_{i=2}^{t} \frac{\partial h^{(i)}}{\partial h^{(i-1)}} \right) \frac{\partial h^{(1)}}{\partial W_{hh}}
+\end{equation}
+Each factor depends on $W_{hh}$ and the activation derivative. When the singular values of $W_{hh}$ are below 1, the product decays exponentially, causing \textit{vanishing gradients}; when they exceed 1, the product grows uncontrollably, causing \textit{exploding gradients}.
+
+\subsection{Long Short-Term Memory (LSTM)}
+LSTMs mitigate the vanishing gradient problem by introducing a memory cell $C$ and gating mechanisms that regulate information flow.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//background//camera_model/lstm_structure.png}
+    \caption{Structure of the LSTM unit with input, forget, and output gates.}
+    \label{fig:lstm_structure}
+\end{figure}
+
+At each time step, the LSTM computes three gates and a candidate memory from the input $x^{(t)}$ and previous hidden state $h^{(t-1)}$:
+\begin{equation}
+    f^{(t)} = \sigma(W_{xf}x^{(t)} + W_{hf}h^{(t-1)} + b_f)
+\end{equation}
+\begin{equation}
+    i^{(t)} = \sigma(W_{xi}x^{(t)} + W_{hi}h^{(t-1)} + b_i), \quad \tilde{C}^{(t)} = \tanh(W_{xc}x^{(t)} + W_{hc}h^{(t-1)} + b_c)
+\end{equation}
+\begin{equation}
+    o^{(t)} = \sigma(W_{xo}x^{(t)} + W_{ho}h^{(t-1)} + b_o)
+\end{equation}
+The \textbf{forget gate} $f^{(t)}$ controls what to discard from the previous cell state, the \textbf{input gate} $i^{(t)}$ together with the candidate memory $\tilde{C}^{(t)}$ controls what new information to write, and the \textbf{output gate} $o^{(t)}$ controls what to expose. The cell state and hidden state are then updated as:
+\begin{equation}
+    C^{(t)} = f^{(t)} \odot C^{(t-1)} + i^{(t)} \odot \tilde{C}^{(t)}, \quad h^{(t)} = o^{(t)} \odot \tanh(C^{(t)})
+\end{equation}
+Despite these improvements, LSTMs remain sequential, which prevents parallel training ($O(T)$ complexity) and still leads to information dilution over very long sequences.
+
+\subsection{Transformer}
+The Transformer~\cite{attention} replaces recurrence with the attention mechanism, enabling parallel computation and direct modeling of global dependencies.
+
+\subsubsection{Scaled Dot-Product Attention}
+Given query, key, and value matrices $Q, K, V$ derived from the input $X$, attention is computed as:
+\begin{equation}
+    \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{D}}\right)V
+\end{equation}
+For autoregressive tasks, a \textit{causal mask} $M$ (with $M_{ij} = -\infty$ for $j > i$) is added before the softmax to prevent each position from attending to future tokens:
+\begin{equation}
+    \text{MaskedAttention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{D}} + M\right)V
+\end{equation}
+
+\subsubsection{Positional Encoding}
+Because the Transformer has no recurrence, positional encodings (PE) are added to inject order information:
+\begin{equation}
+    PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/D}}\right), \quad PE_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/D}}\right)
+\end{equation}
+
+\subsection{Comparison of Architectures}
+The trade-offs between these models are summarized in~\Cref{tab:model_comparison}.
+
+\begin{table}[h!]
+    \centering
+    \caption{Comparison of sequence models regarding parallelization capabilities and computational complexity.}
+    \begin{tabular}{|l|c|c|c|}
+    \hline
+    \textbf{Model} & \textbf{Training} & \textbf{Inference} & \textbf{Performance} \\ \hline
+    RNN & Sequential & $O(T)$ & Low \\ \hline
+    LSTM & Sequential & $O(T)$ & Low \\ \hline
+    Transformer & Parallel & $O(T^2)$ & High \\ \hline
+    \end{tabular}
+    \label{tab:model_comparison}
+\end{table}

@@ -1,0 +1,46 @@
+\section{Feed-forward Neural Network}
+
+The Feed-forward Neural Network (FNN), also known as the Multi-Layer Perceptron (MLP), is the foundational architecture of deep learning.
+
+\subsection{The Artificial Neuron}
+The basic building block of an FNN is the artificial neuron. Given an input vector $x = [x_1, ..., x_n]^T$, a neuron computes a weighted sum, adds a bias, and applies a non-linear activation:
+\begin{equation}
+    a = \sigma(w^T x + b)
+\end{equation}
+where $w$ is the weight vector, $b$ is the bias, and $\sigma(\cdot)$ is a non-linear activation function.
+
+\subsection{Multi-Layer Architecture and Forward Propagation}
+An FNN stacks neurons into layers: an \textbf{input layer} receiving raw data, one or more \textbf{hidden layers} that learn feature representations, and an \textbf{output layer} producing predictions. The term \textit{deep learning} refers to networks with multiple hidden layers.
+
+For a network with $L$ layers, the activation of layer $l$ is computed recursively from the previous layer:
+\begin{equation}
+    a^{(l)} = \sigma(W^{(l)} a^{(l-1)} + b^{(l)})
+\end{equation}
+where $a^{(0)} = x$. This process is called \textit{forward propagation}.
+
+\subsection{Activation Functions}
+Non-linear activations enable the network to learn complex patterns; without them, any deep network would collapse into a single linear transformation. Common choices include the \textbf{Sigmoid} ($\sigma(z) = 1/(1 + e^{-z})$), \textbf{ReLU} ($\sigma(z) = \max(0, z)$ and \textbf{Softmax}, used in output layers for multi-class classification:
+\begin{equation}
+    \sigma(z)_i = \frac{e^{z_i}}{\sum_{j} e^{z_j}}
+\end{equation}
+
+\subsection{Loss Function}
+A \textit{loss function} $L(\hat{y}, y)$ quantifies the discrepancy between predictions $\hat{y}$ and ground truth $y$, and training aims to minimize it. Two standard choices are:
+
+\textbf{Mean Squared Error (MSE)} for regression:
+\begin{equation}
+    L_{MSE} = \frac{1}{N} \sum_{i=1}^{N} (y_i - \hat{y}_i)^2
+\end{equation}
+
+\textbf{Cross-Entropy Loss} for classification (typically paired with Softmax):
+\begin{equation}
+    L_{CE} = - \sum_{c=1}^{C} y_c \log(\hat{y}_c)
+\end{equation}
+where $C$ is the number of classes, $y_c$ is the one-hot ground truth, and $\hat{y}_c$ is the predicted probability for class $c$.
+
+\subsection{Gradient Descent}
+The network learns by iteratively updating its parameters $\theta$ (weights and biases) in the direction that decreases the loss. \textit{Gradient Descent} performs this update as:
+\begin{equation}
+    \theta_{t+1} = \theta_{t} - \eta \nabla_\theta L(\theta_t)
+\end{equation}
+where $\eta$ is the \textit{learning rate} controlling the step size. The gradients $\nabla_\theta L$ are computed efficiently using \textit{Backpropagation}, which applies the chain rule to propagate error signals from the output layer back to the input.

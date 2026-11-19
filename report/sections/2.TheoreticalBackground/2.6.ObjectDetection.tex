@@ -1,0 +1,24 @@
+\section{Object Detection}
+\label{sec:object_detection}
+
+Object detection extends image classification by jointly identifying the categories of objects in an image (classification) and localizing them with bounding boxes.
+
+\subsection{Problem Formulation}
+Given an input image $I$, an object detector predicts a set of detections $D = \{d_1, ..., d_N\}$, where each $d_i$ consists of a class label $c_i \in \{1, ..., C\}$, a bounding box $b_i = (x, y, w, h)$ defined by its center coordinates, width, and height, and a confidence score $s_i$ representing the probability that the box contains an object of class $c_i$.
+
+\subsection{Detector Architectures}
+Modern deep learning-based detectors fall into two main paradigms.
+
+\textbf{Two-stage detectors}, such as the R-CNN family~\cite{rcnn,fastrcnn,fasterrcnn}, first generate a sparse set of candidate Regions of Interest (RoIs), then classify each proposal and refine its bounding box in a second stage. They are accurate but computationally expensive.
+
+\textbf{One-stage detectors}, such as YOLO~\cite{YOLO} and SSD~\cite{ssd}, frame detection as a direct regression problem, mapping image pixels to bounding boxes and class probabilities in a single forward pass. This makes them significantly faster and well-suited for real-time applications, though historically slightly less accurate than two-stage methods.
+
+\subsection{Intersection over Union (IoU)}
+The quality of a predicted box $B_p$ against a ground truth box $B_{gt}$ is measured by the Intersection over Union:
+\begin{equation}
+    \text{IoU} = \frac{\text{Area}(B_p \cap B_{gt})}{\text{Area}(B_p \cup B_{gt})}
+\end{equation}
+IoU ranges from 0 to 1, where 1 indicates a perfect match. A threshold (commonly 0.5) is used to decide whether a detection counts as a True Positive.
+
+\subsection{Non-Maximum Suppression (NMS)}
+Detectors such as YOLO and Faster R-CNN often produce multiple overlapping boxes for the same object. Non-Maximum Suppression (NMS) is a post-processing step that filters these redundancies by iteratively selecting the box with the highest confidence score, removing any other same-class box whose IoU with it exceeds a threshold, and repeating until no boxes remain.

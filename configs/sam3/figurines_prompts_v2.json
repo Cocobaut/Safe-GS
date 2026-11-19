@@ -1,0 +1,92 @@
+{
+  "_comment": "v2: nhu figurines_prompts.json + (1) dung dung cau LERF-Mask khi vat co cau do (old camera, rubber duck with red hat), cung luat teatime ADAPTIVE_PROMPTS; (2) bo prompt 'silver lamp' (den flash la mot phan cua may anh, GT LERF gom ca den); (3) per_instance 1: raw luu tung instance, loc swallow theo instance (v1 bo ca frame khi hop instance nuot vit lon: vit mu do 167 frame manh -> 32 frame nhan, tho 142 -> 32).",
+  "scene": "figurines",
+  "support_label": 10,
+  "prompts": [
+    [
+      "table",
+      10
+    ],
+    [
+      "plastic box of candy",
+      20
+    ],
+    [
+      "old camera",
+      30
+    ],
+    [
+      "candy bag",
+      50
+    ],
+    [
+      "green apple",
+      60
+    ],
+    [
+      "yellow rubber duck",
+      70
+    ],
+    [
+      "porcelain hand",
+      80
+    ],
+    [
+      "yellow dog toy",
+      90
+    ],
+    [
+      "blue elephant toy",
+      100
+    ],
+    [
+      "green toy chair",
+      110
+    ],
+    [
+      "red toy chair",
+      120
+    ],
+    [
+      "play-doh can",
+      130
+    ],
+    [
+      "rubik's cube",
+      140
+    ],
+    [
+      "cat figurine",
+      150
+    ],
+    [
+      "pumpkin",
+      160
+    ],
+    [
+      "red apple",
+      170
+    ],
+    [
+      "rubber duck with red hat",
+      180
+    ],
+    [
+      "rabbit figurine",
+      190
+    ],
+    [
+      "waldo figurine",
+      200
+    ]
+  ],
+  "check_overlap": [
+    "red apple",
+    "rubber duck with red hat",
+    "rabbit figurine",
+    "waldo figurine",
+    "cat figurine"
+  ],
+  "overlap_mode": "swallow",
+  "per_instance": 1
+}

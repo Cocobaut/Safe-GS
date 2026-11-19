@@ -1,0 +1,5 @@
+{
+  "_comment": "Ky vong do nguoi ghi khi nhin anh teatime, chi de doi chieu, khong dung trong thuat toan.",
+  "on_table": ["coc_su", "ly_tra", "dia", "tao", "tui_banh", "khan_giay", "goi_keo", "vung_tra", "coc_kem_sua"],
+  "pairs": [["dia", "banh_quy"], ["coc_su", "thia"], ["dia", "banh_quy_1"], ["dia", "banh_quy_2"]]
+}

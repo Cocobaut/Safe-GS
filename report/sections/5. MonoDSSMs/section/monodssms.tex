@@ -1,0 +1,62 @@
+\section{MonoDSSMs}
+\subsection{Overall Architecture}
+\Cref{fig:MonoDSSMs_arch} illustrates the overview of our proposed framework. We use a small architecture, DLA-34 \cite{DLA} as our backbone to extract visual features. Following MonoDTR \cite{MonoDTR}, we then adopted two branches to parallel extract depth-aware and context-aware features. In the depth-aware branch, the MSDFE module (\Cref{sec:5.2.4}) is presented to learn depth-aware features through auxiliary discretization depth supervision. On the other hand, several convolution layers are applied in the context-aware branch to extract the needed features. Then, to integrate these two kinds of features, we proposed a novel Mamba-based encoder-decoder architecture (\Cref{sec:5.2.3}) and follow \cite{MonoDTR} to utilize depth-positional hint to the context-aware feature a depth positional encoding. Finally, we adopt a single-stage detector with prior-based 2D-3D anchor boxes~\cite{YOLO} and loss from \cite{MonoDTR} for 3D object detection.
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=1\linewidth]{images/monodssms/monoDSSMsOverall.svg}
+    \caption{\textbf{The overall architecture of our proposed MonoDSSMs.} After feeding the input image to the vision backbone, the MSDFE module is used to enhance the depth-aware features, while several convolutions are applied to extract the context-aware features. The Mamba encoder-decoder architecture is then employed to fuse these features. Finally, anchor-based detection is applied to obtain the results.}
+    \label{fig:MonoDSSMs_arch}
+\end{figure}
+
+\subsection{Efficient Feature Extractor} \label{sec:5.2.2}
+\textbf{Backbone.} Previous works \cite{MonoDTR} adopted DLA-102 \cite{DLA}, a quite large model with 33M parameters as the vision backbone to extract features. This choice is the main reason for forming inefficient models. To enhance the efficiency of the model, we found that DLA-34 \cite{DLA} can be an ideal vision backbone for a fast and lightweight model while maintaining precision.\\
+\textbf{Feature Size.} Given the input RGB image with resolution $H\times W$, both DLA-34 and DLA-102 output a feature map with resolution $\frac{H}{8}\times \frac{W}{8}$. The main difference is that DLA-34 produces a feature map with $128$ channels while DLA-102 is $256$. They then use this feature map to extract the depth/context-aware features and then are fused by an encoder-decoder architecture. Such a large feature map can result in computation overheads.
+
+We found that integrating MonoDTR \cite{MonoDTR} with DLA-34 \cite{DLA} as vision backbone and a small feature size $C = 128$ can build up a lightweight model with fewer parameters and faster inference time, but a drop in performance is inevitable. However, we noticed that this slight decrease can be compensated by a model that can extract richer information with a similar number of features compared to Transformers.
+
+\subsection{Depth-Aware Mamba} \label{sec:5.2.3}
+
+
+\textbf{Bidirectional Mamba.} To handle the relative position of each pixel in the image, we proposed BiMamba2 (\Cref{fig:DepthAwareMamba}b), a token mixing method that is based on the building block of Mamba2~\cite{mamba2} with two different scan routes as shown in \Cref{fig:BidirectionalMamba} to capture global visual context. Specifically, the input sequence $\mathbf{u}\in \mathbb{R}^{L\times D}$ is linearly projected to $\mathbf{x}\in 
+\mathbb{R}^{L\times D_e}$, $\mathbf{z} \in \mathbb{R}^{L\times D_e}$ with $D_e$ is the expanded dimension of the model and two sets of parameters $\left(\mathbf{B},\mathbf{C},\Delta\right)$ for two scanning paths. 
+For each direction, $\mathbf{x}$ and corresponding parameter $\left(\mathbf{B},\mathbf{C},\Delta\right)$ are concatenated and fed to a 1D-conv layer. Then, they are processed by SSMs and a normalized layer. The output of each scan direction is added together to get the final result.
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=1\linewidth]{images/monodssms/MambaEncoderDecoder.svg}
+    \caption{\textbf{The proposed Depth Aware Mamba.} 
+    The core of our proposed MonoDSSMs architecture is the integration of context and depth features. It employs (a) a Mamba-based encoder-decoder architecture,  (b) the proposed BiMamba2 block, which extracts visual context using two different scan routes, and (c) the CrossBiMamba2 module, which fuses the features based on Bidirectional Mamba.
+    }
+    \label{fig:DepthAwareMamba}
+\end{figure}
+
+\noindent\textbf{CrossMamba.} While Mamba~\cite{mamba,mamba2} offers a promising alternative to attention mechanisms~\cite{attention} in various research fields and real-world applications. Their ability in cross-modalities and feature fusion remains limited compared to Transformer models. To address this, we introduce CrossMamba, a novel approach for feature fusion based on the state space models (SSMs). As illustrated in \Cref{fig:DepthAwareMamba}c, let's assume we need to fuse the feature between two sequences $\mathbf{u}_1\in \mathbb{R}^{L\times D_1}$ and $\mathbf{u}_2 \in \mathbb{R}^{L\times D_2}$. Instead of projecting $\mathbf{u}_1$ onto the parameter set $\left(\mathbf{B}, \mathbf{C}, \Delta\right)$, we linearly project $\mathbf{u}_2$ to serve as the input-dependence selection mechanism. This projection approach allows the model to select important features of the sequence $\mathbf{u}_1$ based on the information in $\mathbf{u}_2$ and enables the model to fuse them. In this work, to drive visual data, we also follow BiMamba2 and integrate this cross-input dependent selection mechanism with a bidirectional scan route to the proposed CrossBiMamba2. The detailed design can be found in \Cref{fig:DepthAwareMamba}c.
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=1\linewidth]{images/monodssms/BidirectionScan.svg}
+    \caption{\textbf{Illustration of scan methods.} (a) The standard Mamba approach scans the image from top-left to bottom-right pixels (\textbf{\textcolor{blue}{blue routes}}), which limits its ability to capture spatial relationships between them. (b) We utilize another scan path (\textbf{\textcolor{yellow}{yellow routes}}) to help the model understand the relative position of each pixel in the image. This allows Mamba to capture long-range visual context more effectively.}
+    \label{fig:BidirectionalMamba}
+\end{figure}
+
+\noindent\textbf{Mamba Encoder-Decoder Architecture.} Follow previous design on Encoder Decoder architecture using Transformer~\cite{attention}, we proposed Mamba Encoder Decoder architecture (\Cref{fig:DepthAwareMamba}a). As shown in \Cref{fig:DepthAwareMamba}a, we change the token mixing approach from a self-attention mechanism to BiMamba2 in the encoder and decoder to enhance the efficiency and ability of two scanning routes for visual context. In the decoder, we found that CrossBiMamba2 can be an alternative method to CrossAttention~\cite{attention} on feature fusion between the query and encode sequence. To integrate context and depth-aware features, we enhance this architecture as a replacement approach for Depth-Aware Transformer~\cite{MonoDTR}. Specifically, the context-aware feature is the input of the encoder with the BiMamba2 method to extract the visual context, while the depth-aware feature is fed into the decoder with another BiMamba2 block. In the end, these two features are fused by the CrossBiMamba2 to enrich the visual context through the depth maps.
+
+\subsection{Multi-scale Feature Enhancement} \label{sec:5.2.4}
+\textbf{Multi-scale Feature for Depth Prediction.} Due to the absence of depth cues, previous works~\cite{MonoDTR,MonoDETR} directly predict the depth map from the extracted feature of the vision backbone and use this to guide the learning process. However, these works merely apply several convolutional layers to predict depth maps, which can lead to inaccurate depth hints for the model due to the complexity of depth estimation. Recently, several works~\cite{9897187,sagar2020monocular} show that depth estimation from front view image can benefit from multi-scale features. Being inspired, we leverage Atrous Spatial Pyramid Pooling (ASPP)~\cite{AstrousCNN} to extract features at various scales. This allows our model to generate more accurate depth maps by exploiting the benefits of multi-scale information.
+
+\noindent\textbf{Depth-Aware Feature Enhancement.} To generate the depth-aware feature, we introduced MSDFE (\Cref{fig:MSDFE}), a lightweight module leveraging an auxiliary depth estimation task and treating it as a classification problem~\cite{depthOrdinal,CaDDN}. As illustrated in \Cref{fig:MSDFE}, given the input features from the backbone, we utilize ASPP~\cite{AstrousCNN} to enhance the benefits of multi-scale features and a $1\times 1$ convolution layers to predict the probability of discretized depth bins. The probability represents the confidence of the depth value concerning each depth bin. To discretize the depth ground truth from LiDAR, we utilize linear-increasing discretization (LID)~\cite{CaDDN,center3d} to formulate the depth bins by \Cref{eq:depth_discrete}:
+\begin{equation}
+    d_c = d_{min} + \frac{d_{max}-d_{min}}{D\times(D+1)}\times d_i \times (d_i+1)
+\label{eq:depth_discrete}
+\end{equation}
+where $d_c$ is the continuous depth value, $[d_{min},d_{max}]$  is the
+full depth range to be discretized, $D$ is the number of depth
+bins and $d_i$ is the depth bin index.
+
+Finally, followed~\cite{MonoDTR}, we adopted a group convolution to merge adjacent depth bins and utilize~\cite{acfnet} approach to enrich the input feature map and create the final depth aware feature by aggregating the important depth features.
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=1\linewidth]{images/monodssms/MSDFE.svg}
+    \caption{\textbf{The proposed Multi-scale depth aware feature enhancement (MSDFE)}. The input feature from the backbone is first upsampled to match the resolution of the discretized depth map. Then it is fed to the ASPP module and $1\times 1$ convolution layers to predict the probability of discretized depth bins. A group-convolution layer is then applied to the predicted depth map and fused with the input feature map to produce the final depth-aware feature.}
+    \label{fig:MSDFE}
+\end{figure}

@@ -1,0 +1,22 @@
+\begin{table*}[ht]    
+  \centering
+  \caption{\textbf{Comparison on the nuScenes validation set.} $\dagger$ Indicates methods that benefit from perspective-view pre-training.}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{l|cc|cccccc}
+\toprule
+\textbf{Methods} & \textbf{mAP}$\uparrow$  &\textbf{NDS}$\uparrow$ & \textbf{mATE}$\downarrow$& \textbf{mASE}$\downarrow$& \textbf{mAOE}$\downarrow$& \textbf{mAVE}$\downarrow$& \textbf{mAAE}$\downarrow$ \\
+\midrule
+PETRv2~\cite{liu2023petrv2} &  34.9    & 45.6    & 0.700  & 0.275& 0.580 & 0.437& 0.187\\
+BEVDepth~\cite{li2023bevdepth}    &   35.1    & 47.5    & 0.629& 0.267& 0.479& 0.428& 0.198\\
+% BEVPoolv2~\cite{huang2022bevpoolv2}   &   40.6    & 52.6    & 0.572& 0.275& 0.463& 0.275& 0.188\\
+SOLOFusion~\cite{park2022time}  &   42.7    & 53.4    & 0.567    & 0.274& 0.511& 0.252& 0.181    \\
+SparseBEV~\cite{liu2023sparsebev}$\dagger$   &  44.8    & 55.8    & 0.581& 0.271& 0.373   & 0.247    & 0.190 \\
+StreamPETR~\cite{Wang_2023_ICCV}$\dagger$  &   45.0& 55.0& 0.613& 0.267& 0.413& 0.265& 0.198\\ \midrule
+RayDN$\dagger$~\cite{RayDN}  &  46.9 & 56.3 & 0.579 & 0.264 & 0.433 & 0.256 & 0.187 \\
+\hspace{-1pt} + \textit{FLD \& Variational DeNoising} & \textbf{47.8} & \textbf{57.1} & 0.571 & 0.262 & 0.391 & 0.273 & 0.180 \\ \midrule
+OPEN$\dagger$~\cite{OPEN} & 46.5 & 56.4 & 0.573 & 0.275 & 0.413 & 0.235 & 0.193 \\
+\hspace{-1pt} + \textit{FLD \& Variational DeNoising} & \textbf{47.6} & \textbf{57.6} & 0.564 & 0.271 & 0.384 & 0.206 & 0.197 \\
+\bottomrule
+\end{tabular}}
+\label{tab:nuscence_result}
+\end{table*}
