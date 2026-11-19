@@ -160,6 +160,230 @@ def _run(prompts: list = None):
     return legend
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Opt-in: mask theo cổng Relative Top-1 (tools/sam3_gate_eval.py, LERF-Mask 92.0 mIoU ở floor 0.2, rho 0.5).
+# Chế độ ảnh của SAM 3 cho TỪNG frame (giống bản đã chấm), cùng một quy tắc cho mọi prompt, KHÔNG có DROP / MERGE tay.
+# Nhãn giữ đúng bảng ID của bản video (OBJECTS_SAM3 trong tools/mask_hull.py, config S3_label) để dùng lại toàn bộ pipeline.
+# Prompt: dùng đúng câu LERF-Mask khi vật có câu đó (đã có điểm GT), còn lại giữ câu của bản video. Thứ tự = ưu tiên tăng dần.
+ADAPTIVE_PROMPTS = [("table", 13), ("stuffed bear", 20), ("sheep", 30), ("paper napkin", 130), ("bag of cookies", 50),
+                    ("plate", 60), ("tea in a glass", 70), ("coffee mug", 80), ("apple", 90), ("cookies on a plate", 100),
+                    ("spoon", 110), ("small white cup", 160), ("puddle of liquid", 170), ("blue snack package", 180)]
+
+
+def _gate(P, S, floor, rho):
+    """P [N,H,W] xác suất (0..1), S [N] điểm. Top-1 nếu S >= floor; thêm instance có S >= rho * top1. Trả mask bool hoặc None."""
+    import numpy as np
+    if len(S) == 0:
+        return None
+    j0 = int(np.argmax(S))
+    if S[j0] < floor:
+        return None
+    keep = S >= rho * S[j0]
+    return (P[keep] >= 0.5).any(0)
+
+
+@app.function(image=img, gpu="L4", volumes={VOL: vol}, timeout=6 * 3600, cpu=8, memory=49152,
+              secrets=[modal.Secret.from_name("huggingface")],
+              retries=modal.Retries(max_retries=3, initial_delay=10.0, backoff_coefficient=1.0))
+def _run_adaptive(tag: str = "sam3_masks_adaptive", floor: float = 0.2, rho: float = 0.5, low_floor: float = -1.0,
+                  hyst_overlap: float = 0.5, hyst_radius: int = 1, scene: str = "teatime", prompts: list = None,
+                  check_overlap: list = None, support_label: int = 13, overlap_mode: str = "area30", per_instance: int = 0):
+    """Mask từng frame bằng Sam3Processor + cổng Relative Top-1. Checkpoint: mỗi frame lưu raw/<frame>.npz (mask đã gate
+    theo prompt, packbits) + commit mỗi 10 frame; chạy lại bỏ qua frame đã có. Cuối cùng gộp thành labels/ như bản video.
+    v7 (low_floor >= 0): raw lưu mask của mọi prompt có top1 >= low_floor; khi gộp, phát hiện yếu (low_floor <= top1 < floor)
+    chỉ được nhận nếu một frame kề (|t - t'| <= hyst_radius) có phát hiện mạnh (top1 >= floor) của CÙNG prompt và
+    >= hyst_overlap diện tích mask yếu nằm trong mask mạnh đó nới 2 % đường chéo ảnh (trễ theo thời gian, cùng quy tắc mọi prompt).
+    low_floor < 0: như cũ (chỉ floor).
+    per_instance = 1: raw luu RIENG tung instance da qua cong (khoa "<nhan>_<j>", j theo diem giam dan) thay vi hop; khi gop,
+    loc chong lap (CHECK, swallow) xet TUNG instance -> instance bat nham vat lon bi bo nhung instance dung cung frame van giu."""
+    import cv2
+    import numpy as np
+    import torch
+    from PIL import Image
+    from sam3.model_builder import build_sam3_image_model
+    from sam3.model.sam3_image_processor import Sam3Processor
+
+    torch.autocast("cuda", dtype=torch.bfloat16).__enter__()
+    vol.reload()
+    ADAPTIVE = [tuple(x) for x in prompts] if prompts else ADAPTIVE_PROMPTS     # [(prompt, nhan), ...] theo canh
+    CHECK = CHECK_OVERLAP if check_overlap is None else check_overlap
+    root = Path(VOL) / scene / tag
+    raw = root / "raw"; raw.mkdir(parents=True, exist_ok=True)
+    src = sorted((Path(VOL) / scene / "colmap" / "images").glob("frame_*.jpg"))
+    names = [f.stem for f in src]
+    (root / "frames.json").write_text(json.dumps(names))
+    H, W = cv2.imread(str(src[0])).shape[:2]
+    proc = Sam3Processor(build_sam3_image_model(), confidence_threshold=0.05)   # như _probe (bản đã chấm)
+    store_floor = floor if low_floor < 0 else min(low_floor, floor)
+    t0 = time.time()
+    for k, (f, n) in enumerate(zip(src, names)):
+        out_f = raw / f"{n}.npz"
+        if out_f.exists():
+            continue
+        st0 = proc.set_image(Image.open(f).convert("RGB"))
+        arr, meta = {}, {}
+        for p, lb in ADAPTIVE:
+            proc.reset_all_prompts(st0)
+            st = proc.set_text_prompt(state=st0, prompt=p)
+            S = st["scores"].float().cpu().numpy() if ("scores" in st and len(st["scores"])) else np.zeros(0, np.float32)
+            P = st["masks_logits"][:, 0].float().cpu().numpy() if len(S) else None
+            m = _gate(P, S, store_floor, rho) if len(S) else None
+            meta[p] = {"n": int(len(S)), "top1": float(S.max()) if len(S) else 0.0,
+                       "kept": int((S >= rho * S.max()).sum()) if (len(S) and S.max() >= store_floor) else 0}
+            if m is not None and per_instance:
+                order = np.argsort(-S)
+                order = order[S[order] >= rho * S[order[0]]]
+                meta[p]["scores"] = [float(S[j]) for j in order]
+                for r_, j in enumerate(order):
+                    mi = P[j] >= 0.5
+                    if mi.shape != (H, W):
+                        mi = cv2.resize(mi.astype(np.uint8), (W, H), interpolation=cv2.INTER_NEAREST) > 0
+                    if mi.any():
+                        arr[f"{lb}_{r_}"] = np.packbits(mi)
+            elif m is not None:
+                if m.shape != (H, W):
+                    m = cv2.resize(m.astype(np.uint8), (W, H), interpolation=cv2.INTER_NEAREST) > 0
+                arr[str(lb)] = np.packbits(m)
+        np.savez_compressed(out_f, meta=json.dumps(meta), **arr)
+        if k % 10 == 0:
+            vol.commit()
+            mc._tlog(f"[sam3-adap] {k + 1}/{len(src)} frame, {(time.time() - t0) / 60:.1f} phút")
+    vol.commit()
+
+    # gộp: prompt sau đè prompt trước; vật nhỏ (CHECK_OVERLAP) bỏ nếu > 30 % diện tích đã có nhãn vật khác (trừ bàn 13)
+    lab_dir = root / "labels"; lab_dir.mkdir(exist_ok=True)
+    prev = root / "preview"; prev.mkdir(exist_ok=True)
+    name_of = {lb: p for p, lb in ADAPTIVE}
+    rng = np.random.default_rng(0); pal = rng.integers(40, 255, (256, 3)).astype(np.uint8); pal[0] = 0
+    legend, per_frame = {}, {}
+    metas = [json.loads(str(np.load(raw / f"{n}.npz")["meta"])) for n in names]
+    rad = max(1, int(round(0.02 * float(np.hypot(H, W)))))
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * rad + 1, 2 * rad + 1))
+    _mcache = {}
+
+    def mask_of(k, lb):
+        key = (k, lb)
+        if key not in _mcache:
+            z = np.load(raw / f"{names[k]}.npz")
+            ks = inst_keys(z, lb)
+            _mcache[key] = np.any([np.unpackbits(z[k_])[: H * W].reshape(H, W).astype(bool) for k_ in ks], 0) if ks else None
+        return _mcache[key]
+
+    def inst_keys(z, lb):
+        if str(lb) in z.files:
+            return [str(lb)]
+        return sorted([k_ for k_ in z.files if k_.startswith(f"{lb}_")], key=lambda k_: int(k_.split("_")[1]))
+
+    hyst = {p: {"strong": 0, "weak_accepted": 0, "weak_rejected": 0} for p, _ in ADAPTIVE}
+
+    def accept(k, p, lb):
+        t1 = metas[k][p]["top1"]
+        if t1 >= floor:
+            hyst[p]["strong"] += 1
+            return True
+        if low_floor < 0 or t1 < store_floor:
+            return False
+        m = mask_of(k, lb)
+        if m is None or not m.any():
+            return False
+        for j in range(max(0, k - hyst_radius), min(len(names), k + hyst_radius + 1)):
+            if j == k or metas[j][p]["top1"] < floor:
+                continue
+            mj = mask_of(j, lb)
+            if mj is None:
+                continue
+            mjd = cv2.dilate(mj.astype(np.uint8), ker) > 0
+            if (m & mjd).sum() >= hyst_overlap * m.sum():
+                hyst[p]["weak_accepted"] += 1
+                return True
+        hyst[p]["weak_rejected"] += 1
+        return False
+
+    for k, n in enumerate(names):
+        z = np.load(raw / f"{n}.npz")
+        meta = metas[k]
+        per_frame[n] = meta
+        lab = np.zeros((H, W), np.uint8)
+        for key in [kk for kk in _mcache if kk[0] < k - hyst_radius]:
+            del _mcache[key]
+        for p, lb in ADAPTIVE:
+            if not inst_keys(z, lb) or not accept(k, p, lb):
+                continue
+            m = mask_of(k, lb)
+            if p in CHECK:
+                if overlap_mode == "swallow":
+                    # bo instance neu no nuot > 50 % dien tich mot vat da co nhan (bat nham vat lon); vat nho NAM TRONG mask vat khac thi giu
+                    def swallows(mm):
+                        for L in np.unique(lab[mm]):
+                            if L in (0, support_label):
+                                continue
+                            if (mm & (lab == L)).sum() > 0.5 * (lab == L).sum():
+                                return True
+                        return False
+                    parts = [np.unpackbits(z[k_])[: H * W].reshape(H, W).astype(bool) for k_ in inst_keys(z, lb)]
+                    parts = [mm for mm in parts if not swallows(mm)]
+                    if not parts:
+                        continue
+                    m = np.any(parts, 0)
+                else:
+                    occ = (lab != 0) & (lab != support_label)
+                    if (m & occ).sum() > 0.3 * m.sum():
+                        continue
+            lab[m] = lb
+        for lb in np.unique(lab):
+            if lb == 0:
+                continue
+            nc, cc, st, _ = cv2.connectedComponentsWithStats((lab == lb).astype(np.uint8), connectivity=8)
+            for c in range(1, nc):
+                if st[c, cv2.CC_STAT_AREA] < MIN_PIECE:
+                    lab[cc == c] = 0
+        for lb in np.unique(lab):
+            if lb:
+                legend.setdefault(int(lb), {"prompt": name_of[int(lb)], "frames": 0})["frames"] += 1
+        cv2.imwrite(str(lab_dir / f"{n}.png"), lab)
+        if k % 20 == 0:
+            im = cv2.imread(str(src[k]))
+            ov = (0.45 * im + 0.55 * pal[lab][..., ::-1]).astype(np.uint8)
+            for lb in np.unique(lab):
+                if lb == 0:
+                    continue
+                ys, xs = np.nonzero(lab == lb)
+                cv2.putText(ov, f"{lb}:{name_of[int(lb)]}", (int(xs.mean()) - 30, int(ys.mean())),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+            cv2.imwrite(str(prev / f"{n}.jpg"), np.hstack([im, ov]), [cv2.IMWRITE_JPEG_QUALITY, 85])
+    (root / "legend.json").write_text(json.dumps(legend, indent=1, ensure_ascii=False))
+    (root / "gate.json").write_text(json.dumps({"floor": floor, "rho": rho, "low_floor": low_floor, "hyst_overlap": hyst_overlap,
+                                                "hyst_radius": hyst_radius, "hyst_dilate_px": rad, "hysteresis": hyst,
+                                                "prompts": ADAPTIVE,
+                                                "check_overlap": CHECK, "overlap_mode": overlap_mode, "min_piece_px": MIN_PIECE,
+                                                "per_instance": per_instance,
+                                                "per_frame": per_frame}, ensure_ascii=False))
+    vol.commit()
+    return {"legend": legend, "hysteresis": hyst}
+
+
+@app.local_entrypoint()
+def adaptive(tag: str = "sam3_masks_adaptive", floor: float = 0.2, rho: float = 0.5, low_floor: float = -1.0,
+             hyst_overlap: float = 0.5, hyst_radius: int = 1):
+    print(json.dumps(_run_adaptive.remote(tag, floor, rho, low_floor, hyst_overlap, hyst_radius), indent=1, ensure_ascii=False))
+
+
+@app.local_entrypoint()
+def pull_adaptive(tag: str = "sam3_masks_adaptive"):
+    out = Path(__file__).resolve().parent / "Data" / "teatime" / tag
+    for sub in ("labels", "preview"):
+        (out / sub).mkdir(parents=True, exist_ok=True)
+        for e in vol.listdir(f"teatime/{tag}/{sub}"):
+            with open(out / sub / Path(e.path).name, "wb") as f:
+                for c in vol.read_file(e.path):
+                    f.write(c)
+    for name in ("legend.json", "frames.json", "gate.json"):
+        with open(out / name, "wb") as f:
+            for c in vol.read_file(f"teatime/{tag}/{name}"):
+                f.write(c)
+    print(f"đã tải về {out}")
+
+
 LERF_PROMPTS = ["apple", "bag of cookies", "coffee mug", "cookies on a plate", "paper napkin", "plate", "sheep",
                 "spoon handle", "stuffed bear", "tea in a glass"]
 CANDIDATES = ["sugar packet", "tea bag", "plastic creamer cup", "small white cup", "spilled tea", "puddle of liquid",
@@ -256,3 +480,61 @@ def pull():
             for c in vol.read_file(f"teatime/sam3_masks/{name}"):
                 f.write(c)
     print(f"đã tải về {out}")
+
+
+@app.local_entrypoint()
+def adaptive_scene(prompts_json: str, tag: str = "sam3_masks_adaptive", floor: float = 0.2, rho: float = 0.5):
+    """SAM 3 thich nghi cho canh bat ky: prompts_json = {"scene": .., "prompts": [[prompt, nhan], ...], "support_label": ..,
+    "check_overlap": [...]} (nhan < 256, thu tu = uu tien tang dan). Can <scene>/colmap/images/frame_*.jpg tren Volume."""
+    c = json.loads(Path(prompts_json).read_text(encoding="utf-8"))
+    r = _run_adaptive.remote(tag, floor, rho, -1.0, 0.5, 1, c["scene"], c["prompts"], c.get("check_overlap", []),
+                             int(c.get("support_label", 0)), c.get("overlap_mode", "area30"), int(c.get("per_instance", 0)))
+    print(json.dumps(r, indent=1, ensure_ascii=False))
+
+
+@app.local_entrypoint()
+def pull_scene(scene: str = "figurines", tag: str = "sam3_masks_adaptive"):
+    out = Path(__file__).resolve().parent / "Data" / scene / tag
+    for sub in ("labels", "preview"):
+        (out / sub).mkdir(parents=True, exist_ok=True)
+        for e in vol.listdir(f"{scene}/{tag}/{sub}"):
+            with open(out / sub / Path(e.path).name, "wb") as f:
+                for c in vol.read_file(e.path):
+                    f.write(c)
+    for name in ("legend.json", "frames.json", "gate.json"):
+        with open(out / name, "wb") as f:
+            for c in vol.read_file(f"{scene}/{tag}/{name}"):
+                f.write(c)
+    print(f"da tai ve {out}")
+
+
+@app.function(image=img, gpu="L4", volumes={VOL: vol}, timeout=3600, cpu=8, memory=32768,
+              secrets=[modal.Secret.from_name("huggingface")])
+def _probe_prompts(scene: str, prompts: list, n_frames: int = 12):
+    """Cham prompt ung vien tren n_frames frame deu nhau cua canh: top1 SAM 3 (che do anh) moi frame. Dung de chon tu dong
+    cau prompt cho vat ma cau LERF khong duoc SAM 3 nhan (cung quy tac moi vat: chon cau co trung vi top1 cao nhat)."""
+    import numpy as np
+    import torch
+    from PIL import Image
+    from sam3.model_builder import build_sam3_image_model
+    from sam3.model.sam3_image_processor import Sam3Processor
+    torch.autocast("cuda", dtype=torch.bfloat16).__enter__()
+    vol.reload()
+    proc = Sam3Processor(build_sam3_image_model(), confidence_threshold=0.05)
+    src = sorted((Path(VOL) / scene / "colmap" / "images").glob("frame_*.jpg"))
+    pick = [src[int(i)] for i in np.linspace(0, len(src) - 1, n_frames)]
+    res = {p: [] for p in prompts}
+    for f in pick:
+        st0 = proc.set_image(Image.open(f).convert("RGB"))
+        for p in prompts:
+            proc.reset_all_prompts(st0)
+            st = proc.set_text_prompt(state=st0, prompt=p)
+            res[p].append(float(st["scores"].max()) if ("scores" in st and len(st["scores"])) else 0.0)
+    return {p: {"median_top1": float(np.median(v)), "frac_ge_0.2": float(np.mean(np.array(v) >= 0.2))} for p, v in res.items()}
+
+
+@app.local_entrypoint()
+def probe_prompts(scene: str, prompts: str, n_frames: int = 12):
+    r = _probe_prompts.remote(scene, prompts.split("|"), n_frames)
+    for p, v in sorted(r.items(), key=lambda kv: -kv[1]["median_top1"]):
+        print(f"PROBE {p!r}: median_top1 {v['median_top1']:.3f}, frac>=0.2 {v['frac_ge_0.2']:.2f}")

@@ -1,0 +1,56 @@
+\section{nuScenes dataset}
+
+\subsection{Dataset Information}
+The nuScenes dataset~\cite{nuscenes} is a large-scale multimodal dataset for autonomous driving. Unlike KITTI which focuses on a single dataset view, nuScenes comprises 1000 driving scenes, each 20 seconds long, captured in Boston and Singapore. It is notable for its sensor suite, which includes 6 cameras, 1 LiDAR, 5 Radars, and IMU/GPS, providing a full 360-degree field of view. The dataset captures diverse conditions including rain, night, and heavy traffic density. \Cref{fig:nuscenes_example} illustrates a sample from nuScenes dataset.
+
+nuScenes contains 1.4 million annotated 3D bounding boxes across 23 object classes. For the detection benchmark, 10 classes are evaluated: \textit{Car, Truck, Bus, Trailer, Construction vehicle, Pedestrian, Motorcycle, Bicycle, Barrier,} and \textit{Traffic cone}. The data is organized in a relational database format rather than simple flat files. The directory structure typically follows:
+
+\begin{itemize}
+    \item \texttt{samples}: contains keyframe sensor data (images, lidar, radar) used for annotations.
+    \item \texttt{sweeps}: contains intermediate sensor frames (not annotated).
+    \item \texttt{maps}: contains semantic map data.
+    \item \texttt{v1.0-*}: contains JSON metadata files defining the relational database tables.
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images//dataset//nuscenes/nuscenes_example.png}
+    \caption{An example from the nuScenes dataset. We see 6 different camera views, lidar and radar data.}
+    \label{fig:nuscenes_example}
+\end{figure}
+
+The label annotations are provided via the \texttt{sample\_annotation} table in the JSON metadata. Each object instance contains the following fields:
+
+\begin{itemize}
+    \item \texttt{category\_name}: The class of the object (e.g., 'vehicle.car').
+    \item \texttt{translation}: 3D object center location $(x, y, z)$ in meters.
+    \item \texttt{size}: 3D object dimensions: width, length, height in meters.
+    \item \texttt{rotation}: 3D orientation represented as a quaternion $(w, x, y, z)$.
+    \item \texttt{visibility\_token}: Level of occlusion/visibility (in 4 bins, similar to KITTI).
+    \item \texttt{attribute\_tokens}: State attributes such as 'vehicle.moving', 'pedestrian.sitting'.
+    \item \texttt{num\_lidar\_pts}: Number of LiDAR points falling within the box.
+    \item \texttt{num\_radar\_pts}: Number of Radar points falling within the box.
+\end{itemize}
+
+\subsection{Evaluation Metrics}
+The nuScenes object detection benchmark utilizes the mean Average Precision (mAP) and the unique nuScenes Detection Score (NDS). Unlike KITTI, which uses Intersection over Union (IoU) for matching, nuScenes defines a match based on the 2D center distance ($d$) on the ground plane.
+
+A prediction is considered a True Positive (TP) if the center distance $d$ is within a specific threshold. The mAP is calculated by averaging the AP over four distance thresholds: $\mathbb{D} = \{0.5, 1, 2, 4\}$ meters.
+
+To comprehensively measure prediction quality, nuScenes also computes five True Positive (TP) metrics for matched predictions, calculating the mean absolute error for each:
+
+\begin{itemize}
+    \item \textbf{ATE}: Average Translation Error (meters).
+    \item \textbf{ASE}: Average Scale Error ($1 - \text{IoU}$).
+    \item \textbf{AOE}: Average Orientation Error (radians).
+    \item \textbf{AVE}: Average Velocity Error (m/s).
+    \item \textbf{AAE}: Average Attribute Error ($1 - \text{acc}$).
+\end{itemize}
+
+The final ranking metric, the nuScenes Detection Score (NDS), is a weighted sum of the mAP and the TP metrics:
+
+\begin{equation}
+    \text{NDS} = \frac{1}{10} \left[ 5 \cdot \text{mAP} + \sum_{\text{mTP} \in \mathbb{TP}} (1 - \min(1, \text{mTP})) \right]
+\end{equation}
+
+\noindent where $\mathbb{TP}$ is the set of the five mean true positive errors.

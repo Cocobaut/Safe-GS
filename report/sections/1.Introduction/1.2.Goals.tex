@@ -1,0 +1,21 @@
+\section{Mục tiêu đề tài}
+Mục tiêu cốt lõi của đề tài này là phát triển và đánh giá khung làm việc \textbf{Safe-GS}, đảm bảo rằng các cảnh chụp từ thế giới thực có thể được phân tách sạch sẽ, bù đắp đầy đủ góc khuất 360$^\circ$, và tích hợp ổn định vào các engine mô phỏng vật lý. Cụ thể, nghiên cứu hướng tới các mục tiêu sau:
+
+\begin{itemize}
+    \item \textbf{Tự động phân rã vật thể dựa trên câu lệnh tự nhiên (Open-Vocabulary Prompt-Driven):} 
+    Xây dựng một quy trình tự động nhận câu lệnh bằng chữ (ví dụ: \textit{"chiếc cốc sứ"}, \textit{"ly trà"}) để tự động phân đoạn và tách riêng vật thể mục tiêu trên chuỗi ảnh đa góc nhìn, loại bỏ hoàn toàn việc phải vẽ bounding box 3D thủ công hay chấm tọa độ đa giác tốn nhiều công sức.
+
+    \item \textbf{Huấn luyện Gaussian có ràng buộc hình học (Geometry-Constrained Training):} 
+    Thiết lập cơ chế tối ưu hóa 3DGS có ràng buộc, ép các hạt Gaussian phải bám chặt vào ranh giới vật lý của vật thể. Cơ chế này sẽ phạt nặng các hạt lồi lõm hoặc trôi tự do ra ngoài khung, đồng thời chủ động để trống các vùng bị khuất thay vì cố tình sinh ra các hạt nhiễu vô căn cứ.
+
+    \item \textbf{Bù khuyết 360$^\circ$ tách rời (Amodal Completion) và trích xuất Mesh kín nước 100\%:} 
+    Thiết kế quy trình tạo sinh 2 chiều tách bạch giữa vật thể và môi trường xung quanh:
+    \begin{itemize}
+        \item \textit{Đối với vật thể:} Bù đắp hình học toàn diện 360$^\circ$ (đặc biệt là tự động hàn kín phần đáy bị che khuất) và xuất ra file lưới kín (Watertight Mesh qua FlexiCubes) đạt chuẩn làm vật thể va chạm vật lý.
+        \item \textit{Đối với môi trường (mặt bàn):} Xóa vết bóng, inpaint làm phẳng lại bề mặt bàn với ràng buộc toán học phẳng tuyệt đối.
+    \end{itemize}
+
+    \item \textbf{Kiểm chứng thực nghiệm mô phỏng vật lý trên MuJoCo:} 
+    Nạp trực tiếp các vật thể và mặt phẳng bàn đã xử lý vào môi trường mô phỏng vật lý MuJoCo, kiểm chứng rằng vật thể đặt lên bàn đạt trạng thái cân bằng tĩnh ổn định, không bị lún xuyên qua bàn, không bị rung lắc và phản ứng va chạm tự nhiên dưới các lực tác động bên ngoài.
+\end{itemize}
+Together, các mục tiêu này tạo thành một giải pháp hoàn chỉnh cho phép đưa các cảnh 3D chụp từ đời thực vào thế giới mô phỏng robot một cách an toàn và chính xác.

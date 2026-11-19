@@ -1,0 +1,15 @@
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{Cross-dataset evaluation.} We conduct cross-dataset evaluations that perform training on the KITTI train set, and testing on the nuScenes val sets. We adopt the evaluation metric mean absolute error of the depth. Best is highlighted in \textbf{bold}, and second \underline{underline}.}
+    \begin{tabular}{l|cccc}
+        \hline
+         \multirow{2}{*}{Method} & \multicolumn{4}{c}{nuScenes frontal Val} \\ \cline{2-5}
+         & 0-20 & 20-40 & 40-$\infty$ & All \\ \hline \hline
+         GUPNet~\cite{GUPNet} & 0.82 & 1.70 & 6.20 & 1.45 \\
+         DEVIANT~\cite{DEVIANT} & 0.76 & \textbf{1.60} & \textbf{4.50} & \underline{1.26} \\
+         MonoUNI~\cite{MonoUNI} & \underline{0.72} & 1.79 & 4.98 & 1.43 \\ \hline
+         Mono3DV (Ours) & \textbf{0.52} & \underline{1.67} & \underline{4.73} & \textbf{1.24} \\ \hline
+         
+    \end{tabular}
+    \label{tab:cross_dataset_eval}
+\end{table}

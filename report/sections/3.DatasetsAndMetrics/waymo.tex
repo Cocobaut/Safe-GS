@@ -1,0 +1,48 @@
+\section{Waymo dataset}
+
+\subsection{Dataset Information}
+The Waymo Dataset~\cite{waymo} is a high-quality multimodal dataset for autonomous driving perception. Significant for its scale and diversity, the dataset comprises 1,150 scenes, each spanning 20 seconds, collected across a wide range of urban and suburban geographies including San Francisco, Phoenix, and Mountain View. The sensor setup captures a full 360-degree view using a complex suite of 5 LiDARs (one mid-range, four short-range) and 5 high-resolution cameras. The dataset includes diverse driving conditions, covering various weather patterns (rain, fog, direct sunlight) and times of day (dawn, day, dusk, night).
+
+The dataset contains approximately 12 million annotated 3D bounding boxes across 3 main object classes: \textit{Vehicle, Pedestrian,} and \textit{Cyclist}. Unlike the relational database structure of nuScenes, the Waymo Dataset is distributed in the TFRecord format using Protocol Buffers. The data is split into three main sets:
+
+\begin{itemize}
+    \item \texttt{training}: 798 scenes (approx. 158k frames) with annotations.
+    \item \texttt{validation}: 202 scenes (approx. 40k frames) with annotations.
+    \item \texttt{testing}: 150 scenes (approx. 30k frames) without published annotations.
+\end{itemize}
+
+
+
+The label annotations are encapsulated within \texttt{Frame} protocol buffers. Each 3D object label typically contains the following fields:
+
+\begin{itemize}
+    \item \texttt{type}: The object class (e.g., \texttt{TYPE\_VEHICLE}).
+    \item \texttt{box\_3d}: Contains center $(x, y, z)$, dimensions $(l, w, h)$, and heading $\theta$.
+    \item \texttt{metadata}: Tracking difficulty and speed estimates.
+    \item \texttt{detection\_difficulty\_level}: Human-annotated difficulty (LEVEL\_1 or LEVEL\_2).
+    \item \texttt{num\_lidar\_points\_in\_box}: The number of LiDAR returns inside the 3D box.
+    \item \texttt{tracking\_id}: Unique identifier for tracking objects across frames.
+\end{itemize}
+
+\subsection{Evaluation Metrics}
+The Waymo object detection benchmark evaluates performance using mean Average Precision (mAP) and a heading-weighted metric called mean Average Precision weighted by Heading (mAPH). Unlike nuScenes which uses center-distance matching, Waymo utilizes 3D Intersection over Union (IoU) thresholds for matching predictions to ground truth.
+
+A prediction is matched if its IoU with a ground truth box exceeds the class-specific threshold (0.7 for vehicles, 0.5 for pedestrians and cyclists). The primary metrics are defined as follows:
+
+\begin{itemize}
+    \item \textbf{mAP}: Standard mean Average Precision based on 3D IoU.
+    \item \textbf{mAPH}: Incorporates heading accuracy; a True Positive is weighted by $\frac{1 + \cos(\alpha)}{2}$, where $\alpha$ is the heading error.
+\end{itemize}
+
+To provide a granular analysis of model performance, metrics are broken down by difficulty levels based on the number of LiDAR points visible on the object:
+
+\begin{itemize}
+    \item \textbf{LEVEL\_1}: Objects with $>5$ LiDAR points. Considered "easy" to detect.
+    \item \textbf{LEVEL\_2}: Objects with $\ge 1$ LiDAR point (includes LEVEL\_1). Represents the full difficulty range including occluded or distant objects.
+\end{itemize}
+
+The final mAPH score is calculated as:
+\begin{equation}
+    \text{mAPH} = \int_{0}^{1} p(r) \cdot h(r) \, dr
+\end{equation}
+\noindent where $p(r)$ is the precision at recall $r$, and $h(r)$ is the heading accuracy weight for the matched examples.

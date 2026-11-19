@@ -1,0 +1,27 @@
+\section{DETR}
+DETR~\cite{DETR} (DEtection TRansformer) recasts object detection as a direct set prediction problem, removing the need for hand-crafted components such as non-maximum suppression and anchor generation. Instead, it relies on a global loss that enforces unique predictions through bipartite matching.
+
+\subsection{Architecture}
+DETR consists of three main components: a convolutional backbone, a Transformer encoder--decoder, and a small feed-forward prediction head.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1.0\linewidth]{images/background/DETR/detr_arch.png}
+    \caption{The DETR architecture. A CNN backbone extracts features from the image, which are flattened and supplemented with positional encodings before passing through a Transformer encoder. The decoder takes a fixed number of learned object queries and attends to the encoder output. Finally, prediction heads output class labels and bounding boxes for each query.}
+    \label{fig:detr_arch}
+\end{figure}
+
+As illustrated in~\Cref{fig:detr_arch}, a CNN backbone (e.g., ResNet) first produces a lower-resolution feature map, which is flattened into a sequence and combined with spatial positional encodings. The Transformer encoder then applies self-attention to capture global relationships between image regions. The decoder receives $N$ learnable embeddings called \textit{object queries} and uses cross-attention to aggregate information from the encoded features. Each of the $N$ decoder outputs is passed through a shared FFN that predicts a class label (including a ``no object'' class $\varnothing$) and a bounding box.
+
+\subsection{Set Prediction via Bipartite Matching}
+Rather than producing thousands of redundant boxes, DETR outputs a fixed-size set of $N$ predictions, where $N$ is chosen to exceed the typical number of objects per image. To assign each prediction to a ground truth object, DETR solves an optimal bipartite matching problem.
+
+Let $y$ denote the ground truth set padded with $\varnothing$ to size $N$, and $\hat{y} = \{\hat{y}_i\}_{i=1}^N$ the set of predictions. The optimal assignment is the permutation $\sigma \in \mathfrak{S}_N$ minimizing the total matching cost:
+\begin{equation}
+    \hat{\sigma} = \operatorname*{argmin}_{\sigma \in \mathfrak{S}_N} \sum_{i=1}^{N} \mathcal{L}_{\text{match}}(y_i, \hat{y}_{\sigma(i)})
+\end{equation}
+For a ground truth object $y_i = (c_i, b_i)$ with $c_i \neq \varnothing$, the matching cost combines a class probability term and a box similarity term:
+\begin{equation}
+    \mathcal{L}_{\text{match}}(y_i, \hat{y}_{\sigma(i)}) = - \mathbb{1}_{\{c_i \neq \varnothing\}} \hat{p}_{\sigma(i)}(c_i) + \mathbb{1}_{\{c_i \neq \varnothing\}} \mathcal{L}_{\text{box}}(b_i, \hat{b}_{\sigma(i)})
+\end{equation}
+This one-to-one assignment effectively replaces NMS. Given the optimal matching $\hat{\sigma}$, the \textbf{Hungarian loss} is then computed over all matched pairs, combining a negative log-likelihood for classification with a box loss that mixes $\ell_1$ and Generalized IoU terms.

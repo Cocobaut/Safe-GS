@@ -254,3 +254,10 @@ share/
 
 # Cấu hình riêng của Claude Code trên từng máy
 .claude/
+
+# Môi trường local, file tạm & bundle lớn
+.venv_da3/
+.tmp_scripts/
+MUJOCO_LOG.TXT
+logs_amodal3r_check.txt
+report_bundle/

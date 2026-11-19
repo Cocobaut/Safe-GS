@@ -1,0 +1,14 @@
+\begin{table}[h!]
+    \centering
+        \caption{\textbf{The design of Forward-Looking distillation.} w/o denotes directly aligned early query with the last one.`$\mathbf{IoU}_{3D}$' denotes using $\mathbf{IoU}_{3D}$ for weighting between queries. `MLP' denotes using a two-layer MLP to refine the student query.} 
+    \begin{tabular}{c|ccc}
+         \toprule
+         \multirow{2}{*}{Ablation} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+          & Easy & Mod. & Hard \\ \midrule \midrule
+         w/o &  29.25 & 21.12 & 17.65 \\
+         $\mathbf{IoU}_{3D}$ & 29.71 & 21.32 & 18.05\\
+         $\mathbf{IoU}_{3D}$ + MLP & \textbf{30.05} & \textbf{21.54} & \textbf{18.31} \\
+         \bottomrule
+    \end{tabular}
+    \label{tab:self_distillation}
+\end{table}

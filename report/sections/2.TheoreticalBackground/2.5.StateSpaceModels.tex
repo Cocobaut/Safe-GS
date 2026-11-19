@@ -1,0 +1,86 @@
+\section{State Space Models}
+
+State Space Models (SSMs) have emerged as a promising architecture for sequence modeling, combining the strengths of RNNs and Transformers. RNNs offer efficient $O(T)$ inference but cannot be parallelized during training, while Transformers train in parallel but suffer from quadratic $O(T^2)$ inference. SSMs aim to provide the best of both: parallel training, linear inference, and strong accuracy on long sequences.
+
+\subsection{Continuous Representation}
+At its core, an SSM is a continuous-time linear system that maps a 1-D input signal $x(t) \in \mathbb{R}$ to an $N$-D latent state $h(t) \in \mathbb{R}^N$, then projects it to a 1-D output $y(t) \in \mathbb{R}$:
+\begin{equation}
+    h'(t) = A h(t) + B x(t), \quad y(t) = C h(t)
+\end{equation}
+where $A \in \mathbb{R}^{N \times N}$ is the state evolution matrix, and $B \in \mathbb{R}^{N \times 1}$, $C \in \mathbb{R}^{1 \times N}$ are the input and output projection matrices.
+
+\subsection{Discretization}
+To apply this system to discrete sequences, the continuous parameters $A$ and $B$ must be discretized into $\overline{A}$ and $\overline{B}$ using a step size $\Delta$ that represents the input resolution.
+
+\textbf{Euler's method} is the simplest approach, approximating the derivative as $h'(t) \approx (h(t+\Delta) - h(t))/\Delta$. Substituting and rearranging gives the discrete recurrence:
+\begin{equation}
+    h_k = \overline{A} h_{k-1} + \overline{B} x_k
+\end{equation}
+with $\overline{A} = (I - \Delta A)^{-1}$ and $\overline{B} = (I - \Delta A)^{-1} \Delta B$.
+
+\textbf{Bilinear (Tustin's) method}~\cite{bilinear} preserves system stability better by applying the trapezoidal rule over $[t_k, t_{k+1}]$, yielding:
+\begin{equation}
+    \overline{A} = (I - \Delta A / 2)^{-1} (I + \Delta A / 2), \quad \overline{B} = (I - \Delta A / 2)^{-1} \Delta B
+\end{equation}
+
+\subsection{The Convolutional View}
+A defining feature of linear State Space Models is their dual representation. While the recurrence form $h_k = \overline{A} h_{k-1} + \overline{B} x_k$ is efficient for stepwise inference (similar to RNNs), it is slow to train sequentially. However, by unrolling the recurrence for the entire sequence, the output can be expressed as a global convolution.
+
+Assuming the initial state $h_{-1} = 0$, the expansion of the recurrence yields:
+\begin{align}
+    h_0 &= \overline{B} x_0 \\
+    h_1 &= \overline{A} \overline{B} x_0 + \overline{B} x_1 \\
+    h_2 &= \overline{A}^2 \overline{B} x_0 + \overline{A} \overline{B} x_1 + \overline{B} x_2
+\end{align}
+
+The output $y_k = C h_k$ can then be written as a convolution of the input sequence $x$ with a kernel $\overline{K}$:
+\begin{equation}
+    y = x * \overline{K}
+\end{equation}
+where the global convolution kernel $\overline{K} \in \mathbb{R}^L$ (for sequence length $L$) is:
+\begin{equation}
+    \overline{K} = (C\overline{B}, C\overline{A}\overline{B}, C\overline{A}^2\overline{B}, \dots, C\overline{A}^{L-1}\overline{B})
+\end{equation}
+
+This convolutional view allows the model to be trained in parallel using Fast Fourier Transforms (FFT), significantly accelerating training compared to standard RNNs.
+
+\subsection{Structured State Space Models (S4)}
+Naive SSM implementations face computational and memory challenges, and still struggle with long-term dependencies due to vanishing gradients. Structured State Space Models (S4)~\cite{s4} address this by imposing a specific structure on $A$, initialized with the HiPPO (High-Order Polynomial Projection Operators) matrix designed to optimally compress continuous history:
+\begin{equation}
+    A_{nk} = - \begin{cases} 
+    (2n+1)^{1/2}(2k+1)^{1/2} & \text{if } n > k \\
+    n+1 & \text{if } n = k \\
+    0 & \text{if } n < k 
+    \end{cases}
+\end{equation}
+This initialization allows the state $h(t)$ to retain long-range information effectively, enabling S4 to outperform traditional models on tasks requiring long-context reasoning.
+
+\subsection{Selective State Space Models (Mamba)}
+\label{sec:mamba}
+
+Although S4 enables efficient convolutional training, it is \textit{time-invariant}: the matrices $A, B, C$ are fixed across the sequence, so every token is processed with identical dynamics. This prevents the model from selectively remembering or ignoring information based on context (e.g., dropping stop words or focusing on specific triggers).
+
+\subsubsection{The Selection Mechanism}
+Mamba~\cite{mamba} introduces selectivity by making $B$, $C$, and $\Delta$ functions of the input $x$ at each time step, turning the system \textit{time-varying}. \Cref{tab:s4_vs_s6} contrasts the two algorithms.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Comparison between the time-invariant S4 algorithm and the time-varying Mamba~\cite{mamba} algorithm.}
+    \begin{tabular}{|l|l|}
+    \hline
+    \textbf{Algorithm 1: SSM (S4)} & \textbf{Algorithm 2: Mamba (S6)} \\ \hline
+    \textbf{Input:} $x \in \mathbb{R}^{(B, L, D)}$ & \textbf{Input:} $x \in \mathbb{R}^{(B, L, D)}$ \\ \hline
+    1. $A \in \mathbb{R}^{(D, N)}$ (Parameter) & 1. $A \in \mathbb{R}^{(D, N)}$ (Parameter) \\
+    2. $B \in \mathbb{R}^{(D, N)}$ (Parameter) & 2. $B \leftarrow s_B(x)$ : $\mathbb{R}^{(B, L, N)}$ \\
+    3. $C \in \mathbb{R}^{(D, N)}$ (Parameter) & 3. $C \leftarrow s_C(x)$ : $\mathbb{R}^{(B, L, N)}$ \\
+    4. $\Delta \in \mathbb{R}^{D}$ (Parameter) & 4. $\Delta \leftarrow s_\Delta(x)$ : $\mathbb{R}^{(B, L, D)}$ \\
+    5. $\overline{A}, \overline{B} \leftarrow \text{discretize}(A, B, \Delta)$ & 5. $\overline{A}, \overline{B} \leftarrow \text{discretize}(A, B, \Delta)$ \\
+    6. $y \leftarrow \text{SSM}(\overline{A}, \overline{B}, C)(x)$ & 6. $y \leftarrow \text{SSM}(\overline{A}, \overline{B}, C)(x)$ \\ \hline
+    \textbf{Mode:} Time-invariant & \textbf{Mode:} Time-varying \\
+    \textbf{Compute:} Recurrence or Convolution & \textbf{Compute:} Recurrence (Scan) Only \\ \hline
+    \end{tabular}
+    \label{tab:s4_vs_s6}
+\end{table}
+
+\subsubsection{Computational Implications}
+Because $B$ and $C$ now vary with time, the convolutional kernel is no longer fixed, and the FFT-based parallel training of S4 no longer applies. Mamba must therefore rely on the recurrent (scan) mode. To preserve efficiency, it employs a hardware-aware parallel scan algorithm optimized for GPUs that avoids materializing the expanded states in high-bandwidth memory (HBM), achieving training speeds comparable to Transformers while keeping linear inference complexity.

@@ -1,0 +1,15 @@
+\begin{table}[h!]
+    \centering
+    \caption{\textbf{The design of Refinement MLP in Forward-Looking Distillation.} Initially, we directly align the early query with the last one, denoted as "w/o" for without explicit refinement. Subsequently, the performance was evaluated across various MLP architectures, including a single linear layer, our default two-layer configuration, and progressively deeper MLP structures.} 
+    \begin{tabular}{c|ccc}
+         \toprule
+         \multirow{2}{*}{\# of MLP Layers} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+          & Easy & Mod. & Hard \\ \midrule \midrule
+         w/o & 29.71 & 21.32 & 18.05 \\
+         1 &  29.84 & 21.46 & 18.13 \\
+         2 & \textbf{30.05} & \textbf{21.54} & \textbf{18.31}\\
+         3 & 29.31 & 21.24 & 17.94 \\
+         \bottomrule
+    \end{tabular}
+    \label{tab:refine_mlp_distill}
+\end{table}

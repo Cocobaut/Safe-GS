@@ -1,0 +1,34 @@
+\section{Động lực nghiên cứu}
+
+Trong lĩnh vực thị giác máy tính, đồ họa và robot học, việc đưa các môi trường thực tế vào không gian ảo để tương tác vật lý—thường được gọi là bản sao số (Digital Twin)—đang là một mục tiêu nghiên cứu trọng điểm. Với sự ra đời của \textbf{3D Gaussian Splatting (3DGS)}~\cite{kerbl20233d}, việc tái tạo không gian 3D từ các bức ảnh chụp đa góc nhìn đã đạt được bước nhảy vọt về cả tốc độ hiển thị thời gian thực lẫn độ chân thực quang học vượt trội so với NeRF~\cite{mildenhall2021nerf}.
+
+Từ bước đột phá này, \textbf{ý tưởng ban đầu và trực quan nhất của đề tài} là xây dựng một quy trình khép kín: \textit{Từ ảnh chụp đời thực $\rightarrow$ Huấn luyện 3DGS $\rightarrow$ Trích xuất sang lưới tam giác 3D (Mesh) $\rightarrow$ Nạp thẳng vào các công cụ mô phỏng vật lý (Physics Engine - PE như MuJoCo, Isaac Gym, PhysX) để tương tác, gắp/đẩy vật thể trực tiếp trong chính bối cảnh thực tế đó.}
+
+Để hiện thực hóa quy trình này, hàng loạt nghiên cứu đỉnh cao (SOTA 2024--2025) đã nỗ lực giải quyết bài toán trích xuất mesh từ 3DGS, tiêu biểu như:
+\begin{itemize}
+    \item \textbf{SuGaR}~\cite{guedon2024sugar} (CVPR 2024): Ràng buộc các hạt Gaussian bám phẳng trên bề mặt để trích xuất mesh qua Poisson Reconstruction.
+    \item \textbf{2DGS}~\cite{huang20242dgs} (SIGGRAPH 2024): Thay thế hạt ellipsoid 3D bằng các đĩa phẳng 2D định hướng (2D oriented disks) giúp bề mặt mịn màng hơn.
+    \item \textbf{GOF (Gaussian Opacity Fields)}~\cite{yu2024gof} (CVPR 2024): Chuẩn hóa trường độ mờ để trích xuất bề mặt đẳng trị (level set) chuẩn xác hình học.
+    \item \textbf{MILo (Mesh-In-the-Loop Gaussian Splatting)}~\cite{milo2024} (SIGGRAPH Asia 2024): Tích hợp trực tiếp thuật toán Marching Tetrahedra vào vòng lặp huấn luyện, tối ưu gradient 2 chiều giữa Mesh và Gaussian, tuyên bố tạo ra mesh sạch và nhẹ lý tưởng cho mô phỏng vật lý (Physics Simulation).
+    \item \textbf{PhysGaussian}~\cite{xie2024physgaussian} (SIGGRAPH 2024): Gán hạt vật lý continuum mechanics trực tiếp vào Gaussian để mô phỏng biến dạng động.
+\end{itemize}
+
+Tuy nhiên, khi trực tiếp bắt tay vào thực nghiệm, chúng tôi nhận thấy các phương pháp trích xuất mesh tiên tiến nhất hiện nay (kể cả GOF hay MILo) thực chất chỉ được thiết kế cho mục đích **hiển thị cho đẹp mắt** (visual fidelity) trên **nguyên một cảnh lớn nguyên khối (Monolithic Scene)**. Khi đặt vào bài toán tương tác vật lý thực tế của robot, toàn bộ quy trình lập tức sụp đổ vì **4 rào cản mang tính bản chất**:
+
+\begin{enumerate}
+    \item \textbf{Vấn đề "Nguyên cảnh dính liền" (Monolithic Scene Welding):}  
+    Cả GOF, SuGaR lẫn MILo đều xem toàn bộ không gian quan sát là một màng bọc liên tục. Trong thế giới thực, cái ly và mặt bàn là hai thực thể vật lý hoàn toàn độc lập. Nhưng trong mô hình mesh trích xuất từ các phương pháp trên, phần tiếp xúc giữa đáy ly và mặt bàn bị "hàn chết" vào nhau thành một khối đa giác dính liền. Khi nạp vào Physics Engine (PE), toàn bộ cảnh vật bị khóa cứng như một bức tượng thạch cao tĩnh; robot hoàn toàn không thể tương tác, nhấc cái ly lên hay gạt vật thể trượt trên bàn mà không làm xé toang cấu trúc hình học của toàn bộ mặt bàn.
+
+    \item \textbf{Cái bẫy khi cố gắng cắt rời vật thể (Torn Geometry \& Texture Bleeding):}  
+    Để giải quyết vấn đề dính liền, giải pháp trực quan tiếp theo là dùng mặt nạ phân đoạn (segmentation mask) để "cắt" vật thể ra khỏi mặt bàn. Tuy nhiên, hành động này làm bộc lộ một sự thật: hình ảnh, bóng đổ và ranh giới tiếp xúc của vật thể đã bị "nung chảy" (texture baking) bám chặt vào các hạt Gaussian của mặt bàn. Khi cắt rời vật thể, phần mặt bàn bên dưới bị thủng một lỗ hổng toang hoác hoặc để lại vết ố nham nhở, làm biến dạng mặt phẳng tiếp xúc vốn là nền tảng để tính toán phản lực và ma sát.
+
+    \item \textbf{Thiếu hụt hình học góc khuất (Amodal Deficit - Đáy ly rỗng ruột):}  
+    Trong quá trình chụp ảnh thực tế, camera không bao giờ nhìn xuyên qua mặt bàn để thấy được đáy ly. Do đó, mesh của vật thể sau khi bóc tách ra thực chất chỉ là một "chiếc vỏ rỗng mỏng dính" (hollow shell), không có phần đáy, không có độ dày và vector pháp tuyến bị lộn xộn. Các engine vật lý đòi hỏi vật thể phải là các khối đa diện khép kín hoàn toàn (\textit{Watertight Mesh}) để tính toán thể tích, trọng tâm và va chạm. Việc đưa một mesh hở đáy vào PE sẽ khiến thuật toán va chạm bị sập (crash) hoặc vật thể bị xuyên thấu, sụp đổ tức thì.
+
+    \item \textbf{Vỏ ma và hạt rác lơ lửng (Ghost Shells \& Floaters):}  
+    Bên cạnh đó, việc xóa hay tách vật thể bằng các thuật toán lọc tia nhìn truyền thống luôn bỏ sót lại những cụm hạt Gaussian bán trong suốt lơ lửng quanh vùng ranh giới. Dù mắt người khó nhận thấy, các engine vật lý lại coi chúng là các rào cản cứng vô hình, gây ra hiện tượng va chạm ảo khiến cánh tay robot bị kẹt hoặc hất tung đồ vật một cách phi lý.
+\end{enumerate}
+
+Xuất phát từ những bài học thực nghiệm sâu sắc trên, nghiên cứu này nhận định rằng: **Để tương tác vật lý thành công trong một cảnh 3DGS, chúng ta không thể chỉ đơn thuần trích xuất mesh từ một cảnh tĩnh, mà bắt buộc phải có cơ chế bóc tách độc lập (decoupling) và hoàn thiện toàn bộ góc khuất 360$^\circ$ (amodal completion) cho từng vật thể.**
+
+Chính vì vậy, đề tài này đề xuất khung phương pháp \textbf{Safe-GS}. Thay vì chấp nhận một khối mesh dính liền của GOF/MILo hay một chiếc ly hở đáy đầy rác lơ lửng, Safe-GS kết hợp các mô hình tri thức tạo sinh 3D (3D Generative Priors) với cơ chế ràng buộc hình học nhằm: (1) Tự động hoàn thiện phần đáy bị che khuất để tạo ra vật thể kín nước 100\% (Watertight Mesh); (2) Hàn gắn, inpaint và làm phẳng tuyệt đối bề mặt bàn chứa vật thể; và (3) Triệt tiêu hoàn toàn các hạt vỏ ma lơ lửng, mở đường cho việc nạp cảnh vào engine MuJoCo để tương tác vật lý an toàn và ổn định.

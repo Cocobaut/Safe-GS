@@ -1,0 +1,65 @@
+{
+  "_comment": "v2: cau LERF giu neu trung vi top1 SAM 3 >= 0.2 (floor) tren 12 frame deu (modal_sam3.py::probe_prompts); neu khong, lay ung vien co trung vi cao nhat: pork belly 0.00 -> slice of meat 0.91, wavy noodles in bowl 0.17 -> noodles 0.81, sake cup 0.00 -> small metal cup 0.86, sake bottle 0.00 -> bottle 0.35, paper napkin 0.03 -> napkin 0.84.",
+  "scene": "ramen",
+  "support_label": 10,
+  "prompts": [
+    [
+      "table",
+      10
+    ],
+    [
+      "metal plate",
+      20
+    ],
+    [
+      "yellow bowl",
+      30
+    ],
+    [
+      "noodles",
+      40
+    ],
+    [
+      "slice of meat",
+      50
+    ],
+    [
+      "egg",
+      60
+    ],
+    [
+      "seaweed",
+      70
+    ],
+    [
+      "bottle",
+      80
+    ],
+    [
+      "small metal cup",
+      90
+    ],
+    [
+      "glass of water",
+      100
+    ],
+    [
+      "napkin",
+      110
+    ],
+    [
+      "chopsticks",
+      120
+    ]
+  ],
+  "check_overlap": [
+    "slice of meat",
+    "egg",
+    "seaweed",
+    "small metal cup",
+    "chopsticks",
+    "napkin"
+  ],
+  "overlap_mode": "swallow",
+  "per_instance": 1
+}

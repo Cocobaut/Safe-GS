@@ -1,0 +1,14 @@
+\section{Tập dữ liệu Replica}
+Tập dữ liệu \textbf{Replica} (The Replica Dataset: A Digital Replica of Indoor Spaces)~\cite{straub2019replica} là bộ dữ liệu chuẩn mực do phòng thí nghiệm Facebook Reality Labs và Facebook AI Research (FAIR) công bố vào năm 2019 nhằm thu hẹp khoảng cách giữa môi trường mô phỏng ảo và thế giới thực (\textit{sim-to-real gap}).
+
+\subsection{Đặc điểm và cấu trúc dữ liệu}
+Bộ dữ liệu bao gồm \textbf{18 cảnh không gian nội thất 3D} có độ chân thực quang học cao ở quy mô phòng và tòa nhà (căn hộ, văn phòng, phòng khách sạn, phòng họp). Mỗi cảnh trong Replica được tái tạo dày đặc và cung cấp đầy đủ các thành phần sau:
+\begin{itemize}
+    \item \textbf{Hình học 3D mật độ cao (Dense 3D Geometry):} Lưới tam giác (mesh) sạch, liên tục và có độ chính xác hình học cao.
+    \item \textbf{Vân bề mặt dải tương phản động cao (HDR Textures):} Ghi lại chi tiết ánh sáng và bề mặt vật liệu sát với thực tế.
+    \item \textbf{Nhãn phân đoạn ngữ nghĩa (Semantic \& Instance Annotations):} Phân loại chi tiết đến từng thực thể (bàn, ghế, tường, đồ vật) phục vụ bài toán tách vật thể 3D.
+    \item \textbf{Thuộc tính bề mặt phản xạ:} Đánh dấu tường minh các bề mặt khó tái tạo như gương phẳng và kính.
+\end{itemize}
+
+\subsection{Vai trò trong Safe-GS}
+Trong đề tài Safe-GS, bộ dữ liệu Replica đóng vai trò là môi trường thử nghiệm chuẩn hóa (synthetic/scanned indoor benchmark) có sẵn lưới tam giác gốc (\textit{ground-truth mesh}). Nhờ có sẵn hình học gốc chính xác, chúng tôi sử dụng Replica để kiểm định sai số tái tạo bề mặt (Chamfer Distance) và đánh giá khả năng tách vật thể khỏi mặt phẳng nâng đỡ trước khi chuyển sang các cảnh chụp thực tế phức tạp hơn.

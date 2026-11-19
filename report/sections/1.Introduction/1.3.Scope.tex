@@ -1,0 +1,14 @@
+\section{Phạm vi nghiên cứu}
+Đề tài này nằm ở giao điểm giữa Thị giác máy tính 3D, Mô hình 3D tạo sinh (Generative 3D Priors), và Mô phỏng vật lý robot. Phạm vi nghiên cứu được giới hạn rõ ràng bởi các tiêu chí sau:
+
+\begin{itemize}
+    \item \textbf{Loại môi trường và cảnh vật:} Tập trung vào các bối cảnh tĩnh trong nhà và trên mặt bàn thao tác của robot, chứa các vật thể rắn (rigid objects) đặt tiếp xúc trực tiếp trên mặt phẳng (tiêu biểu như bộ dữ liệu chụp thực tế \textit{teatime}, cùng các tập dữ liệu chuẩn trong nhà như \textit{Replica} và \textit{LERF}). Các vật thể biến dạng mềm (non-rigid), chất lỏng động, và vật liệu trong suốt sẽ nằm ngoài phạm vi thử nghiệm của đề tài này.
+
+    \item \textbf{Dữ liệu đầu vào:} Hệ thống nhận đầu vào là tập ảnh RGB đa góc nhìn đã được hiệu chuẩn thông số camera (thông qua Structure-from-Motion bằng COLMAP), đi kèm với câu lệnh văn bản mô tả vật thể cần thao tác.
+
+    \item \textbf{Trọng tâm phương pháp:} Giải quyết triệt để 3 vấn đề: hạt rác lơ lửng (ghost shells), dính màu lên mặt bàn (texture bleeding), và lấp kín phần đáy không quan sát được bằng cách kết hợp tối ưu 3DGS với các mô hình 3D Foundation tiên tiến (như Microsoft TRELLIS).
+
+    \item \textbf{Nền tảng mô phỏng:} Mọi đánh giá tương tác và đo đạc va chạm vật lý được thực hiện trên môi trường mô phỏng \textbf{MuJoCo}, tập trung vào độ chính xác kích thước thật, độ ổn định tiếp xúc và khả năng chống xuyên thủng (penetration resistance).
+
+    \item \textbf{Môi trường phần cứng:} Toàn bộ quá trình huấn luyện và suy luận tạo sinh được tối ưu hóa để vận hành trơn tru trên kiến trúc GPU đám mây hiện đại (cụ thể là NVIDIA L4 với 24GB VRAM).
+\end{itemize}

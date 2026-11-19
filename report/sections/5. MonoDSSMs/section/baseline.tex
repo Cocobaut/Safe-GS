@@ -1,0 +1,92 @@
+\section{Baseline}
+
+\subsection{Overall Architecture}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{images/monodssms/baseline_overall.png}
+    \caption{The overall framework of MonoDTR.}
+    \label{fig:monodtr_baseline}
+\end{figure}
+
+The MonoDTR~\cite{MonoDTR} framework establishes a novel end-to-end paradigm for monocular 3D object detection by explicitly addressing the depth ambiguity problem inherent in 2D imagery. As illustrated in Figure \ref{fig:monodtr_baseline}, the architecture is composed of a backbone network, a Depth-Aware Feature Enhancement (DFE) module, a Depth-Aware Transformer (DTR), and a task-specific detection head.
+
+Given an input image $I \in \mathbb{R}^{H \times W \times 3}$, a DLA-34 backbone is utilized to extract multi-scale features. These features are upsampled and fused to generate a high-resolution feature map $F_{b} \in \mathbb{R}^{C \times \frac{H}{S} \times \frac{W}{S}}$, where $S=4$ is the downsampling stride. This feature map $F_b$ serves as the shared representation for two parallel pathways: the \textit{Context-Aware} branch, which preserves semantic information, and the \textit{Depth-Aware} branch, which is supervised to learn geometric representations.
+
+\subsection{Depth-Aware Feature Enhancement (DFE)}
+The DFE module is designed to bridge the gap between 2D appearance and 3D geometry. Unlike traditional methods that treat depth estimation as a separate post-processing step, DFE integrates depth supervision directly into feature learning.
+
+\noindent\textbf{Depth Discretization.}
+To effectively model depth, the continuous depth range $[d_{min}, d_{max}]$ is discretized into $K$ bins. MonoDTR employs LID~\cite{CaDDN} to handle the scale ambiguity of objects at different distances. The depth bins are defined such that the interval size increases with distance.
+
+\noindent\textbf{Auxiliary Depth Supervision.}
+The DFE module processes the backbone features $F_b$ through convolutional layers to predict a pixel-wise depth distribution map $D_{pred} \in \mathbb{R}^{K \times \frac{H}{S} \times \frac{W}{S}}$. Let $d_{(u,v)}$ be the ground truth depth at pixel $(u,v)$. The target depth bin index $k_{(u,v)}$ is assigned based on the LID thresholds. 
+
+The module is supervised by an auxiliary classification loss $L_{aux}$, ensuring that the features used to generate $D_{pred}$ implicitly encode the scene's geometric structure. These depth-aware features, denoted as $F_{depth}$, are subsequently utilized to guide the transformer.
+
+\subsection{Depth-Aware Transformer (DTR)}
+The DTR module resolves the limitation of standard transformers in 3D detection, where positional encodings are typically spatial and depth-agnostic. Furthermore, it addresses the computational bottleneck of processing high-resolution feature maps.
+
+\noindent\textbf{Depth Positional Encoding (DPE).}
+Instead of fixed sine-cosine embeddings, DTR constructs positional encodings dynamically from the predicted depth distribution. A learnable depth embedding matrix $\mathbf{E} \in \mathbb{R}^{K \times C}$ is defined, where each row represents the embedding for a specific depth bin.
+
+The Depth Positional Encoding (DPE) for a feature at spatial location $i$ is computed as the expectation of the depth embeddings, weighted by the predicted depth probabilities from the DFE module:
+\begin{equation}
+    \text{DPE}_i = \sum_{k=1}^{K} P_{i,k} \cdot \mathbf{E}_k
+\end{equation}
+where $P_{i,k}$ is the probability of pixel $i$ belonging to depth bin $k$. This formulation ensures that features at similar depths receive similar positional encodings, regardless of their 2D spatial location.
+
+\noindent\textbf{Transformer Encoder with Linear Attention.}
+The transformer takes the context-aware features $F_{ctx}$ (derived from $F_b$) as input. The input sequence $X \in \mathbb{R}^{L \times C}$ (where $L = \frac{H}{S} \times \frac{W}{S}$) is formed by flattening $F_{ctx}$. The DPE is added to $X$ to provide geometric context.
+
+Standard Multi-Head Self-Attention (MSA) has a complexity of $O(N^2)$, which is prohibitive for the high-resolution feature maps used in detection. To mitigate this, MonoDTR employs \textbf{Linear Attention}. By replacing the standard softmax kernel with a feature map function $\phi(\cdot)$ (typically $\text{elu}(\cdot) + 1$) and utilizing the associative property of matrix multiplication, the complexity is reduced to $O(N)$. The formulation is:
+
+\begin{equation}
+    \mathbf{Q} = (X + \text{DPE})W_Q, \quad \mathbf{K} = (X + \text{DPE})W_K, \quad \mathbf{V} = X W_V
+\end{equation}
+\begin{equation}
+    \text{LinearAttention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \frac{\phi(\mathbf{Q}) (\phi(\mathbf{K})^T \mathbf{V})}{\phi(\mathbf{Q}) \sum_{j} \phi(\mathbf{K})_j^T}
+\end{equation}
+This mechanism computes the global context aggregation $(\phi(\mathbf{K})^T \mathbf{V})$ first, which results in a $C \times C$ matrix, effectively decoupling the computational cost from the sequence length $L$.
+
+\subsection{Detection Head and Loss Functions}
+The output of the DTR, denoted as $F_{trans}$, is reshaped back to $\mathbb{R}^{C \times \frac{H}{S} \times \frac{W}{S}}$ and fed into the detection head. Following the CenterNet paradigm, the head consists of multiple branches predicting specific 3D attributes.
+
+\textbf{Prediction Heads.}
+The network outputs the following maps:
+\begin{itemize}
+    \item \textbf{Heatmap ($\hat{Y} \in [0,1]^{C_{cls} \times \frac{H}{S} \times \frac{W}{S}}$):} Indicates the probability of object centers for $C_{cls}$ classes.
+    \item \textbf{2D Offset ($\hat{O} \in \mathbb{R}^{2 \times \frac{H}{S} \times \frac{W}{S}}$):} Refines the discretization error of the center location.
+    \item \textbf{3D Dimensions ($\hat{S} \in \mathbb{R}^{3 \times \frac{H}{S} \times \frac{W}{S}}$):} Predicts the physical size $(h, w, l)$.
+    \item \textbf{Depth ($\hat{D} \in \mathbb{R}^{1 \times \frac{H}{S} \times \frac{W}{S}}$):} Directly regresses the continuous depth $z$.
+    \item \textbf{Orientation ($\hat{\alpha} \in \mathbb{R}^{8 \times \frac{H}{S} \times \frac{W}{S}}$):} Uses the Multi-Bin method to regress the local yaw angle.
+\end{itemize}
+
+\textbf{Loss Formulation.}
+The total loss $L_{total}$ is a weighted sum of the task losses and the auxiliary supervision:
+\begin{equation}
+    L_{total} = L_{hm} + L_{box\_3d} + \lambda L_{aux}
+\end{equation}
+
+1. \textbf{Heatmap Loss ($L_{hm}$):} The penalty-reduced focal loss is employed:
+\begin{equation}
+    L_{hm} = -\frac{1}{N} \sum_{xy} \begin{cases} 
+    (1 - \hat{Y}_{xy})^\alpha \log(\hat{Y}_{xy}) & \text{if } Y_{xy}=1 \\
+    (1 - Y_{xy})^\beta (\hat{Y}_{xy})^\alpha \log(1 - \hat{Y}_{xy}) & \text{otherwise}
+    \end{cases}
+\end{equation}
+
+2. \textbf{3D Box Loss ($L_{box\_3d}$):} This aggregates the regression losses for dimensions, depth, orientation, and offsets, typically using $L1$ loss for regression and cross-entropy for bin classification in orientation:
+\begin{equation}
+    L_{box\_3d} = \lambda_{dim}L_{dim} + \lambda_{depth}L_{depth} + \lambda_{loc}L_{loc} + \lambda_{orient}L_{orient}
+\end{equation}
+
+3. \textbf{Auxiliary Loss ($L_{aux}$):} The DFE module is supervised using Focal Loss between the predicted depth distribution $P$ and the ground truth bin $k_{gt}$:
+\begin{equation}
+    L_{aux} = -\frac{1}{N_{pix}} \sum_{i} (1 - P_{i, k_{gt}})^\gamma \log(P_{i, k_{gt}})
+\end{equation}
+where $\gamma$ is the focusing parameter.
+
+\subsection{Problem and Motivation}
+While the baseline MonoDTR~\cite{MonoDTR} represented a significant leap forward by integrating depth cues directly into the attention mechanism via its Depth-Aware Transformer (DTR) and Depth-Aware Feature Enhancement (DFE) modules, it remains constrained by the inherent inefficiencies of the transformer architecture. The core bottleneck lies in the self-attention mechanism, which suffers from quadratic computational complexity relative to the input token sequence. This heavy computational burden creates a critical trade-off: while MonoDTR effectively models long-range dependencies and depth geometry, it does so at the cost of high latency and significant memory usage. For real-time applications like autonomous driving, where rapid inference on resource-constrained edge devices is non-negotiable, MonoDTR’s architectural heaviness limits its scalability and practical deployment.
+
+Motivated by the need to dismantle this accuracy-efficiency trade-off, we introduces MonoDSSMs, the first framework to adapt State Space Models (specifically the Mamba architecture) for monocular 3D object detection. By replacing the quadratic complexity of MonoDTR’s transformer blocks with the linear complexity of Mamba, we achieve a dramatic reduction in computational cost without sacrificing the ability to model global context. We specifically introduce a Mamba-based encoder-decoder and a novel Cross-Mamba module to fuse depth-aware and context-aware features efficiently.

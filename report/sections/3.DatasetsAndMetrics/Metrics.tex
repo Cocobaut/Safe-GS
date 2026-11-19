@@ -1,0 +1,29 @@
+\section{Các độ đo đánh giá (Evaluation Metrics)}
+Để đánh giá toàn diện hệ thống Safe-GS từ chất lượng hiển thị quang học, độ chính xác phân vùng, hình học lưới 3D cho đến tính ổn định trong mô phỏng vật lý, chúng tôi sử dụng bốn nhóm độ đo sau:
+
+\subsection{Độ đo chất lượng hiển thị ảnh (Novel-View Synthesis)}
+\begin{itemize}
+    \item \textbf{PSNR (Peak Signal-to-Noise Ratio):} Đo tỷ lệ tín hiệu trên nhiễu (tính theo dB) giữa ảnh render và ảnh thật trên tập góc nhìn kiểm thử. Giá trị càng cao chứng tỏ độ trung thực điểm ảnh càng lớn.
+    \item \textbf{SSIM (Structural Similarity Index Measure):} Đánh giá độ tương đồng về cấu trúc, độ sáng và độ tương phản cục bộ trong khoảng $[0, 1]$.
+    \item \textbf{LPIPS (Learned Perceptual Image Patch Similarity):} Sử dụng mạng VGG để đo khoảng cách cảm nhận thị giác; giá trị càng thấp càng sát với nhận thức của mắt người.
+\end{itemize}
+
+\subsection{Độ đo phân tách vật thể (Open-Vocabulary Segmentation)}
+\begin{itemize}
+    \item \textbf{mIoU (mean Intersection over Union):} Tỷ lệ phần giao trên phần hợp trung bình giữa mặt nạ dự đoán từ câu lệnh và mặt nạ chuẩn trên các góc nhìn kiểm thử của LERF-Mask.
+    \item \textbf{mBIoU (mean Boundary IoU):} Đo độ chính xác riêng tại vùng đường biên của vật thể, đặc biệt quan trọng để kiểm tra xem mặt nạ có bị lẹm vào mặt bàn hay bỏ sót viền vật thể hay không.
+\end{itemize}
+
+\subsection{Độ đo hình học lưới 3D (3D Geometry \& Mesh Quality)}
+\begin{itemize}
+    \item \textbf{Chamfer Distance (CD):} Khoảng cách trung bình hai chiều giữa tập điểm lấy mẫu trên bề mặt lưới tái tạo và tập điểm chuẩn (hoặc trường Gaussian gốc), đo bằng milimét (mm).
+    \item \textbf{Hausdorff Distance:} Khoảng cách sai lệch lớn nhất tại điểm tệ nhất giữa lưới trích xuất và bao lồi tham chiếu.
+    \item \textbf{Độ kín nước (Watertightness):} Kiểm tra điều kiện topo học để đảm bảo lưới tam giác không có cạnh biên hở (\textit{boundary edges} $= 0$), đủ điều kiện tính toán thể tích và va chạm trong bộ mô phỏng vật lý.
+\end{itemize}
+
+\subsection{Độ đo ổn định vật lý trong MuJoCo (Physics Simulation)}
+\begin{itemize}
+    \item \textbf{Độ ổn định cân bằng tĩnh (Static Equilibrium Drift):} Đo độ dịch chuyển tịnh tiến (mm) và góc xoay (độ) tối đa của vật thể khi đặt yên trên mặt bàn trong khoảng thời gian kiểm thử (ví dụ 2 giây) dưới tác dụng của trọng lực.
+    \item \textbf{Độ xuyên thấu (Penetration Depth):} Khoảng lún cực đại của đáy vật thể xuyên qua mặt phẳng bàn (lý tưởng bằng $0.0\text{ mm}$).
+    \item \textbf{Kiểm thử tương tác (Lift \& Drop Test):} Nhấc vật thể lên độ cao $20\text{ cm}$ rồi thả rơi tự do; đo sai số vị trí sau khi chạm bàn và độ xê dịch của các vật thể xung quanh.
+\end{itemize}

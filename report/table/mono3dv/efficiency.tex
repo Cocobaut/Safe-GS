@@ -1,0 +1,16 @@
+\begin{table}[h!]
+\centering
+\caption{\textbf{Efficiency comparison.} We test the Runtime (ms) on one RTX 3090 GPU with batch size 1, and compare $AP_{3D}$ on \textit{test} set.}
+\resizebox{0.65\columnwidth}{!}{
+	\begin{tabular}{l c c c} % Transposed columns: 4 total
+	\toprule
+	Method & Runtime$\downarrow$ & GFlops$\downarrow$ & $AP_{3D}$ Mod.\\ % Metric headers
+	\midrule
+	MonoDTR~\cite{MonoDTR} & \textbf{37} & 120.48 & 15.39\\
+	MonoDETR~\cite{MonoDETR} & 38 & \textbf{62.12} & 16.47\\
+	MonoDGP~\cite{MonoDGP} & 45 & 71.76 & 18.72\\
+	Mono3DV & 38 & \textbf{62.12} & \textbf{19.20}\\
+	\bottomrule
+	\end{tabular}}
+\label{tab:efficiency}
+\end{table}

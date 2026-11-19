@@ -1,0 +1,10 @@
+\section{Tổng quan kiến trúc đề xuất}
+Để giải quyết triệt để ba rào cản đã phân tích ở Chương 1—gồm hiện tượng lưới nguyên khối dính liền (\textit{monolithic scene welding}), chảy vân bề mặt lên mặt bàn (\textit{texture bleeding}), và hở đáy ở vùng không quan sát được (\textit{amodal deficit})—chúng tôi đề xuất khung phương pháp \textbf{Safe-GS}.
+
+Nguyên lý cốt lõi của Safe-GS là chuyển từ cách tiếp cận ``tái tạo một khối thống nhất rồi cắt hậu kỳ'' sang \textbf{tái tạo có ràng buộc hình học và tách rời ngay từ đầu} giữa vật thể mục tiêu (\textit{Target Object}) và vật chứa/nâng đỡ (\textit{Supporting Container}, ví dụ mặt bàn). Quy trình xử lý gồm 4 giai đoạn nối tiếp:
+\begin{enumerate}
+    \item \textbf{Định danh và dựng khung hình học (Prompt-to-Hull):} Từ câu lệnh văn bản (ví dụ: \textit{``cái ly''}), hệ thống phân tách cả vật thể lẫn mặt phẳng tiếp xúc bên dưới, sau đó dùng mạng kiến trúc chữ U (U-Net) kết hợp chiếu ngược đa góc nhìn để dựng khung bao 3D ($\mathcal{H}_{obj}$).
+    \item \textbf{Huấn luyện Gaussian ép sát khung (Hull-Constrained 3DGS):} Ép các hạt Gaussian chỉ được phép tối ưu hóa bên trong khung $\mathcal{H}_{obj}$. Các vùng nhìn thấy được tái tạo sắc nét; các vùng bị che khuất (đáy ly, mặt sau) \textbf{bắt buộc phải để trống}, không cho phép sinh hạt nhiễu.
+    \item \textbf{Bù khuyết 360$^\circ$ và phục hồi vật chứa (Amodal Inpainting):} Sử dụng mô hình tạo sinh 3D (như Microsoft TRELLIS) kết hợp các thuật toán hình học (RANSAC, cắt đa giác) để điền đầy phần đáy bị khuyết, đồng thời xóa bóng và làm phẳng bề mặt bàn bên dưới.
+    \item \textbf{Trích xuất Watertight Mesh và nạp vào MuJoCo:} Xuất lưới tam giác khép kín 100\% cho từng vật thể độc lập để đưa vào mô phỏng va chạm vật lý.
+\end{enumerate}

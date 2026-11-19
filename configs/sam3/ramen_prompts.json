@@ -1,0 +1,22 @@
+{
+  "_comment": "Prompt SAM 3 cho LERF ramen (canh thu ba). Cau LERF-Mask nguyen van cho 6 vat co GT (chopsticks, egg, glass of water, pork belly, wavy noodles in bowl, yellow bowl); vat khac chon tu frame_00001 / frame_00070. Thu tu = uu tien tang dan (vat lon truoc). Cung luat figurines v2: overlap_mode swallow + per_instance.",
+  "scene": "ramen",
+  "support_label": 10,
+  "prompts": [
+    ["table", 10],
+    ["metal plate", 20],
+    ["yellow bowl", 30],
+    ["wavy noodles in bowl", 40],
+    ["pork belly", 50],
+    ["egg", 60],
+    ["seaweed", 70],
+    ["sake bottle", 80],
+    ["sake cup", 90],
+    ["glass of water", 100],
+    ["paper napkin", 110],
+    ["chopsticks", 120]
+  ],
+  "check_overlap": ["pork belly", "egg", "seaweed", "sake cup", "chopsticks", "paper napkin"],
+  "overlap_mode": "swallow",
+  "per_instance": 1
+}

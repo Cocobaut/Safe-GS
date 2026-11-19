@@ -291,3 +291,36 @@ e8 (cắt vết chân + bảo vệ cừu/gấu + plane_fill + tinh chỉnh ảnh
 
 ### 2026-11-04 run v2 (nền e8) + e10
 v2 = v1 với nền S4b thay bằng S4d/e8, chạy lại S9, S10. Hình học chỗ vật đứng: trong 1 cm 93.0 % (v1 48.2 %), trung vị 0.09 cm (1.10 cm). Đổi lại PSNR ngoài vùng vật 21.97 (v1 23.74), S9 21.62 (22.62). e10 (ô lấp 0.5 cm) không tốt hơn e8; vệt tam giác do Gaussian lớn của nền gốc. Tiếp: giảm mất mát vành sát vật (lấy texture ảnh thật vào vùng lấp), kiểm đáy vật / mesh v2, nhận định cuối cho MuJoCo.
+
+### 2026-11-12 do thi chong do
+`tools/support_graph.py` chay tren hull SAM 3 va Gaussian S3. Hull: dung vat tren ban, dung thia trong coc, sai dia/banh_quy do hull dia phong cao x3. Gaussian: dung dia do 2 banh_quy, on dinh, nhung thieu vat chua co nhan. Tiep: dung Gaussian co nhan SAM 3 (S3 moi) thay hull de do vi tri doc, hull chi de rang buoc/khung.
+
+### 2026-11-12 do thi chong do ban tong quat
+Run v3_sam3 (S3 voi 13 vat SAM 3). support_graph --scale_free (nguong theo sigma ban + ban kinh Gaussian, dong thuan qua muc quet): 9/9 vat tren ban, 2/2 cap chong tren teatime. Figurines (Split&Splat cu) suy bien, chua kiem duoc canh thu hai. Tiep: chay pipeline tren 1 canh LERF khac de kiem tong quat; noi do thi vao S4 (thu tu go / lap) va S8 (vat mang theo khi nhac).
+
+### 2026-11-12 khung chat + khuon (s3m_mold)
+Do bang bo render: Gaussian khong dong gop (view train) bo di khong doi anh test (PSNR 23.3447 = 23.3447; doi chung 23.3382) -> tieu chi "khong thay thi de trong" dung. Khoet hull theo do sau render: vat det ep dung do day (dia 8.3 -> 2.7 cm), khuon day / mat sau tach ro. Ban dau dung vat can gia dinh: SAI, da bo. Tiep: (1) huan luyen / tinh chinh Gaussian bi gioi han trong khung (phat ngoai khung), (2) inpaint khuon (day phang theo mat ban, mat sau bang prior), (3) mesh kin tu khung + khuon -> MuJoCo.
+
+### 2026-11-12 buoc 1 ep khung
+Ep moi vat lam thung vat (hull gau/cuu bi cut, vung_tra rong). Them kiem khung tu dong (>20 % Gaussian ngoai khung -> khong ep): PSNR giu nguyen (23.344 o lam 1), ngoai khung giam o tui_banh/ly_tra/goi_keo, nhung loi nho vi Gaussian vat da nam trong khung san. Loi chinh con lai: day / mat sau khong thay -> buoc 2 inpaint khuon. Sua mask_hull.py (vung tu moi vat, bo gan cung gau/cuu).
+
+### 2026-11-12 buoc 2 lap khuon (ban co so)
+Lap khuon bang Gaussian det + loc "khong doi pixel da quan sat" + day trong vet chan + khuon tiep xuc theo do thi chong do. Test PSNR -0.05 dB; thung khi vat dung rieng: banh_quy 9.9 -> 1.7 %, dia 2.3 -> 0.3 %, cuu 3.8 -> 1.7 %, gau 13.9 -> 9.4 % (khung gau con beo). Luu y Modal giu code cu: dung tools/push_code.py + code_rel. Tiep: (a) mat sau gau/cuu bang prior sinh (TRELLIS / WINGS), (b) buoc 3 mesh kin tu khung + khuon -> MuJoCo, (c) do chat luong mau mat day.
+
+### 2026-11-12 buoc 3 mesh kin + MuJoCo
+tools/frame_mesh.py: mesh tu khung (marching cubes) + khoa phang day theo mat ban: 11/11 mesh kin; moi vat do ban dung yen trong MuJoCo (truot 0, xoay <= 0.01 do, lun 0.03 mm). Con: genus gia (lam sach topo), banh_quy dinh 1 manh, coc dac, va cham bao loi (can CoACD), mat sau gau/cuu (prior sinh), thu nhac vat (lift) trong canh day du.
+
+### 2026-11-12 buoc 3b
+Tach manh (banh_quy 3 manh), lap duong ham nho (gau genus 115 -> 7), CoACD, thu nhac ca canh: 9/9 vat nhac duoc, nhac dia mang theo banh_quy (khop do thi), 8/9 khop; thia roi khoi coc (mesh thia thieu phan trong coc). Con: genus gia dia / khan_giay / tui_banh, khung dia chiem cho duoi banh, mat sau gau/cuu (prior sinh), render Gaussian theo pose MuJoCo (S9) cho v3.
+
+### 2026-11-12 mesh ca canh + render v3
+Mesh be mat ca canh (TSDF CoMe) o Data/teatime/full_scene_mesh/. Render ca canh theo quy dao MuJoCo (nen e8 + vat lap khuon): nhac dia mang theo banh quy, ban con nguyen; nhac coc cho thay day kin (mau theo mang tam). Con: texture day, mat sau gau/cuu (prior sinh), vet tam giac o nen, kiem tong quat tren canh khac, commit len git khi anh bao.
+
+### 2026-11-12 TRELLIS + khung (kieu Points-to-3D)
+modal_trellis.py: khoi dau tu be mat thay, chi o camera nhin xuyen + duoi ban la trong, t0 0.8, RePaint latent: TRELLIS dong kin day 4/4 vat, giu quai coc, them it o ngoai khung. Mesh nhieu manh. Tiep: ghep Gaussian TRELLIS vung khuon vao canh, loc nhin thay, so voi lap phang; loc manh mesh -> MuJoCo.
+
+### 2026-11-12 TRELLIS day du
+Chay 13 vat, ghep Gaussian vao canh, mesh, MuJoCo. Ghep Gaussian: kem lap phang (PSNR 23.05-23.13 vs 23.29; day banh van mo do Gaussian TRELLIS qua nho voi bo render CoMe). Mesh: kin 13/13, lam sach genus dia/khan_giay/tui_banh nhung phong the tich, gau phong lan sang coc. Giu ban quy tac lam mac dinh; TRELLIS de lua chon.
+
+### 2026-11-17 chieu: v5_da3 tron chuoi + texture lap ban + cong SAM 3
+v5_da3 (khoet DA3): khong giam tre banh_quy (24.7 -> 24.1 mm), tang genus gia (gau 4 -> 53, coc 1 -> 4), xoa thia; khung goc S3m lam cuu do trong MuJoCo -> khong dung v5_da3 mac dinh. scene_lift: do theo tam khoi + --com_frame (so lift_v4 cu bi phong dai boi goc canh). Chot do day khong cuu duoc thia (thieu cho do). Lap texture anh that (s4d --texture_fill): PSNR vet chan +2.0 dB, net 0.63 -> 0.99, trong 1 cm 89.1 -> 91.8 %. Cong Relative Top-1 (floor 0.2, rho 0.5): mIoU 77.6 -> 92.0, ly_tra 48.3 -> 95.5, gau giu 98.9 (15 cap, chua do bao dong gia). Tiep: ap cong vao mask video SAM 3 + chay lai S3; S9/S10 voi nen e8tex; xem lai khung S3m cho cuu; chan khoet DA3 o cau truc mong. Chi tiet RESULTS.md.

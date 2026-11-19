@@ -1,0 +1,14 @@
+\begin{table}[ht!]
+    \centering
+    \caption{\textbf{Ablation study on the effect of ground truth} in generating a noised query. `Category' denotes only using category to generate the noised query. `3DBox' denotes using the 3D boxes.}
+    \begin{tabular}{cc|ccc}
+         \toprule
+         \multicolumn{2}{c|}{Ablation} & \multicolumn{3}{c}{Val, $AP_{3D|R40}$} \\
+         Category& 3DBox & Easy & Mod. & Hard \\ \midrule \midrule
+         \xmark & \xmark &  30.09 & 21.63 & 18.27 \\
+         \checkmark & \xmark  & 29.16 & 21.28 & 18.00\\
+         \checkmark & \checkmark & \textbf{30.46} & \textbf{22.78} & \textbf{19.49}\\
+         \bottomrule
+    \end{tabular}
+    \label{tab:noise_query_generator_ablation}
+\end{table}
